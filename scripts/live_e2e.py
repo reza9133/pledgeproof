@@ -238,21 +238,24 @@ def receipt_outcome(receipt: dict) -> tuple[Optional[bool], str]:
             for item in node:
                 walk(item)
 
-    # Only the transaction's own outcome counts. A receipt also carries the validators' receipts and
-    # the receipts of earlier rotated leaders; one of those can say ERROR while the transaction as a
-    # whole was accepted (a failed round is retried with a new leader). Reading every "ERROR" in the
-    # blob made accepted transactions look like failures.
+    # Only the transaction's own outcome counts. consensus_data.leader_receipt is a list that can also
+    # hold validator-mode entries; a validator cancelled after quorum is reported there as ERROR
+    # ("Validator execution cancelled after quorum") although the transaction was accepted. So read
+    # the leader entry (the last one that is not in validator mode, if the leader was rotated) and nothing else.
     top = receipt.get("tx_execution_result_name") or receipt.get("txExecutionResultName")
+    consensus = receipt.get("consensus_data")
+    leaders = consensus.get("leader_receipt") if isinstance(consensus, dict) else None
+    leader_only = [x for x in leaders if isinstance(x, dict) and x.get("mode") != "validator"] \
+        if isinstance(leaders, list) else []
     if isinstance(top, str) and top:
         exec_results = [top.upper()]
+    elif leader_only and isinstance(leader_only[-1].get("execution_result"), str):
+        exec_results = [leader_only[-1]["execution_result"].upper()]
+    elif isinstance(leaders, list) and leaders:
+        exec_results = []          # only validator entries: decide from result_name / status_name below
     else:
-        leaders = (receipt.get("consensus_data") or {}).get("leader_receipt") if isinstance(receipt.get("consensus_data"), dict) else None
-        if isinstance(leaders, list) and leaders and isinstance(leaders[-1], dict) \
-                and isinstance(leaders[-1].get("execution_result"), str):
-            exec_results = [leaders[-1]["execution_result"].upper()]
-        else:
-            exec_results = []
-            walk(receipt)
+        exec_results = []
+        walk(receipt)
     result_name = str(receipt.get("result_name") or "").upper()
     status_name = str(receipt.get("status_name") or "").upper()
     if any("ERROR" in item for item in exec_results):
