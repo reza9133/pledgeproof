@@ -342,9 +342,17 @@ class LiveBackend(Backend):
     # -- transactions ---------------------------------------------------------
     def _wait(self, tx_hash: Any, status=None) -> dict:
         retries = max(5, int(self.wait_seconds * 1000 / self.interval_ms))
-        return self.client.wait_for_transaction_receipt(
-            transaction_hash=tx_hash, status=status or self.TS.ACCEPTED,
-            interval=self.interval_ms, retries=retries)
+        for attempt in range(6):
+            try:
+                return self.client.wait_for_transaction_receipt(
+                    transaction_hash=tx_hash, status=status or self.TS.ACCEPTED,
+                    interval=self.interval_ms, retries=retries)
+            except Exception as exc:
+                text = str(exc)
+                transient = "invalid JSON" in text or "Bad gateway" in text or "502" in text or "504" in text
+                if not transient or attempt == 5:
+                    raise
+                time.sleep(10)                  # the public gateway hiccuped: ask again, the tx is still there
 
     def deploy(self, acct: Acct, code: str) -> str:
         tx_hash = self.client.deploy_contract(code=code, account=acct.raw, args=[])
@@ -588,10 +596,20 @@ class Ctx:
                        goal, cap, min_pledge_units * self.unit, deadline, max_strikes, json.dumps(milestones),
                        value=bond)
         after = int(self.view("campaign_count"))
-        self.rep.check("campaign launched", after == before + 1, f"count {before} -> {after}; {tx.error or tx.status}")
-        if after != before + 1:
+        if after <= before:                     # the transaction may land a little later than its receipt
+            LiveBackend._poll(lambda: int(self.view("campaign_count")) > before, timeout=180, step=10)
+            after = int(self.view("campaign_count"))
+        # An earlier launch whose receipt timed out can still land late, so the count may grow by more
+        # than one. The newest campaign is the one this call made (the script is sequential).
+        self.rep.check("campaign launched", after >= before + 1, f"count {before} -> {after}; {tx.error or tx.status}")
+        if after < before + 1:
             raise RuntimeError("launch_campaign did not create a campaign")
-        return before
+        if after > before + 1:
+            self.rep.add("WARN", "campaign count grew by more than one", f"{before} -> {after}: a late transaction from an earlier step")
+        cid = after - 1
+        got = self.campaign(cid)
+        self.rep.check("newest campaign matches this launch", int(got["goal"]) == goal, f"goal {got['goal']} vs {goal}")
+        return cid
 
     def fill_and_activate(self, cid: int, units=(2, 2)) -> None:
         for who, amount in zip(("bob", "carol"), units):
@@ -726,6 +744,7 @@ def s_happy_path(ctx: Ctx) -> None:
     ctx.expect_revert("nothing left to refund", "bob", "claim_refund", cid, match="nothing to refund")
     ctx.B.settle(ctx.last_tx, rep)
     ctx.B.wait_balance(creator, lambda b: b - creator_before >= raised // 2, 300)
+    rep.info("contract balance after payouts (0 means the transfers were executed)", str(ctx.B.balance(ctx.contract)))
     delta = ctx.B.balance(creator) - creator_before
     rep.soft("creator ended up with the raised money (bond returned, tolerance for fees)",
              delta >= raised - U // 5, f"balance change {delta} wei, expected about {raised}")
@@ -804,6 +823,7 @@ def s_cancel_refund(ctx: Ctx) -> None:
     rep.check("refund pool is empty", int(ctx.campaign(cid)["refund_pool"]) == 0, ctx.campaign(cid)["refund_pool"])
     ctx.B.settle(ctx.last_tx, rep)
     ctx.B.wait_balance(bob, lambda b: b >= bob_before - U // 5, 300)
+    rep.info("contract balance after all claims (0 means the transfers were executed)", str(ctx.B.balance(ctx.contract)))
     rep.soft("bob got his money back", ctx.B.balance(bob) >= bob_before - U // 5, f"{ctx.B.balance(bob) - bob_before} wei")
 
 
