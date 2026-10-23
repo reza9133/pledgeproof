@@ -236,7 +236,21 @@ def receipt_outcome(receipt: dict) -> tuple[Optional[bool], str]:
             for item in node:
                 walk(item)
 
-    walk(receipt)
+    # Only the transaction's own outcome counts. A receipt also carries the validators' receipts and
+    # the receipts of earlier rotated leaders; one of those can say ERROR while the transaction as a
+    # whole was accepted (a failed round is retried with a new leader). Reading every "ERROR" in the
+    # blob made accepted transactions look like failures.
+    top = receipt.get("tx_execution_result_name") or receipt.get("txExecutionResultName")
+    if isinstance(top, str) and top:
+        exec_results = [top.upper()]
+    else:
+        leaders = (receipt.get("consensus_data") or {}).get("leader_receipt") if isinstance(receipt.get("consensus_data"), dict) else None
+        if isinstance(leaders, list) and leaders and isinstance(leaders[-1], dict) \
+                and isinstance(leaders[-1].get("execution_result"), str):
+            exec_results = [leaders[-1]["execution_result"].upper()]
+        else:
+            exec_results = []
+            walk(receipt)
     result_name = str(receipt.get("result_name") or "").upper()
     status_name = str(receipt.get("status_name") or "").upper()
     if any("ERROR" in item for item in exec_results):
@@ -287,7 +301,14 @@ class LiveBackend(Backend):
         return key.hex() if hasattr(key, "hex") else str(key)
 
     def balance(self, address: str) -> int:
-        return int(self.client.get_balance(address))
+        last: Optional[Exception] = None
+        for _ in range(6):                      # the public RPC sometimes answers 502; wait and retry
+            try:
+                return int(self.client.get_balance(address))
+            except Exception as exc:
+                last = exc
+                time.sleep(5)
+        raise last                              # type: ignore[misc]
 
     def fund(self, acct: Acct, wei: int) -> bool:
         """Studio's own faucet is the RPC method sim_fundAccount (genlayer-py only allows it on localnet)."""
