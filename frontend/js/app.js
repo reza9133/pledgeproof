@@ -190,10 +190,10 @@ if (list) {
 /* ---------- campaign detail ---------- */
 const detail = $("#detail");
 if (detail) {
-  const id = Number(new URLSearchParams(location.search).get("id"));
+  const rawId = new URLSearchParams(location.search).get("id"), id = /^\d+$/.test(rawId ?? "") ? Number(rawId) : -1;
   const tx = $("#tx");
   const setTx = (msg, bad) => { tx.hidden = !msg; tx.textContent = msg || ""; tx.classList.toggle("bad", !!bad); };
-  const errText = (e) => chain.contractError(e) || e?.shortMessage || e?.message || String(e);
+  const errText = (e) => chain.contractError(e) || (e?.code === 4001 || /user (rejected|denied)/i.test(e?.shortMessage || e?.message || "") ? "You rejected the request in your wallet." : e?.shortMessage || e?.message || String(e));
   const effDue = (c, m) => Math.max(Number(m.due), Number(c.current_since) + 3 * 86400, Number(c.cure_until));
 
   async function run(name, fn, slow) {
@@ -228,14 +228,15 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
     else {
       if (c.status === "funding") {
         const open = t < Number(c.funding_deadline), capped = raised >= N(c.cap);
-        if (!isCreator && open && !capped) acts.push(`<div class="row"><input id="amt" inputmode="decimal" placeholder="Amount in GEN (min ${gen(c.min_pledge, 6)})" style="min-width:230px"><button class="btn" id="back">Back this campaign</button></div>`);
+        if (!isCreator && open && !capped) acts.push(`<div class="row"><input id="amt" inputmode="decimal" placeholder="Amount in GEN (min ${gen(c.min_pledge, 6)})" style="min-width:230px"><button class="btn" id="back">Back this campaign</button></div><small>Room left under the cap: ${gen(N(c.cap) - raised, 6)} GEN</small>`);
         if (pledged > 0n && open) acts.push(`<button class="btn ghost" id="withdraw">Withdraw my pledge (${gen(pledged)} GEN)</button>`);
         if (isCreator && open && !capped) acts.push(`<button class="btn ghost" id="cancel">Cancel campaign</button>`);
         if (!open || capped) acts.push(`<button class="btn" id="close">Close funding</button>`);
       }
       if (c.status === "active" && cur) {
-        if (isCreator && cur.state !== "pending") acts.push(`<div class="note">Put this proof token on your public proof page, then submit the page URL:<br><code id="tok">${esc(token)}</code> <button class="btn ghost" id="copy" style="padding:4px 12px">Copy</button></div>
-<div class="row"><input id="url" placeholder="https://…" style="min-width:300px"><button class="btn" id="submit">Submit proof</button></div>`);
+        if (isCreator && t < effDue(c, cur)) acts.push(`<div class="note">Put this proof token on your public proof page, then ${cur.state === "pending" ? "replace" : "submit"} the page URL:<br><code id="tok">${esc(token)}</code> <button class="btn ghost" id="copy" style="padding:4px 12px">Copy</button></div>
+<div class="row"><input id="url" placeholder="https://…" style="min-width:300px"><button class="btn" id="submit">${cur.state === "pending" ? "Replace proof URL" : "Submit proof"}</button></div>${cur.state === "pending" ? `<small>Replacing the URL restarts the one-hour wait for other people's reviews.</small>` : ""}`);
+        else if (isCreator) acts.push(`<p class="note">The deadline for this milestone has passed, so a proof can no longer be submitted.</p>`);
         if (cur.state === "pending") {
           const wait = Number(cur.submitted_at) + 3600 - t;
           acts.push(`<button class="btn" id="review" ${!isCreator && wait > 0 ? "disabled" : ""}>Run validator review</button>${!isCreator && wait > 0 ? `<small>Others can trigger the review in ${Math.ceil(wait / 60)} min.</small>` : ""}`);
@@ -247,7 +248,7 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
       if (!acts.length) acts.push(`<p class="note">Nothing for you to do on this campaign right now.</p>`);
     }
 
-    detail.innerHTML = `<div class="row" style="justify-content:space-between"><span class="pill ${esc(c.status)}">${esc(c.status)}${c.fail_reason ? " · " + esc(c.fail_reason.replace(/_/g, " ")) : ""}</span><small>Creator <a href="${C.explorer}/address/${esc(c.creator)}">${short(c.creator)}</a>${isCreator ? " (you)" : ""}</small></div>
+    detail.innerHTML = `<div class="row" style="justify-content:space-between"><span class="pill ${esc(c.status)}">${esc(c.status)}${c.fail_reason ? " · " + esc(c.fail_reason.replace(/_/g, " ")) : ""}</span><small>Creator <a href="${C.explorer}/address/${esc(c.creator)}" target="_blank" rel="noopener noreferrer">${short(c.creator)}</a>${isCreator ? " (you)" : ""}</small></div>
 <h2 style="margin-top:14px">${esc(c.title)}</h2><p>${esc(c.pitch)}</p>
 <div class="bar big" role="img" aria-label="Funding progress"><i style="width:${pct}%"></i></div>
 <div class="kv"><div><small>Raised</small><b>${gen(raised)} GEN</b></div><div><small>Goal / cap</small><b>${gen(goal)} / ${gen(c.cap)}</b></div><div><small>Backers</small><b>${c.backer_count}</b></div>
@@ -261,6 +262,7 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
       const v = parseGen($("#amt").value);
       if (v === null || v <= 0n) return setTx("Enter a valid amount in GEN.", true);
       if (v < N(c.min_pledge)) return setTx(`The minimum pledge is ${gen(c.min_pledge, 6)} GEN.`, true);
+      if (v > N(c.cap) - raised) return setTx(`Only ${gen(N(c.cap) - raised, 6)} GEN of room is left under the funding cap.`, true);
       run("Pledge", (h) => chain.write("back", [BigInt(id)], v, h));
     });
     on("#withdraw", () => run("Withdraw", (h) => chain.write("withdraw_pledge", [BigInt(id)], 0n, h)));
