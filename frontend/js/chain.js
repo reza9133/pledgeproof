@@ -34,6 +34,8 @@ export async function ensureNetwork(provider) {
   }
 }
 
+export function dropWallet() { writer = null; }
+
 export async function useWallet(account, provider) {
   const { createClient, studionet } = await load();
   writer = createClient({ chain: studionet, account, provider });

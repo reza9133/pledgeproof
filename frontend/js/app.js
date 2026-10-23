@@ -33,7 +33,7 @@ document.body.insertAdjacentHTML("afterbegin", `<header><div class="wrap">
 <nav aria-label="Main">${links.map(([k, n, h]) => `<a href="${h}" ${k === page || (k === "campaigns" && page === "campaign") ? 'aria-current="page"' : ""}>${n}</a>`).join("")}</nav>
 <div class="themes" role="group" aria-label="Theme">${["light", "dim", "dark"].map((t) => `<button data-t="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div>
 <button class="btn" id="wbtn">Connect wallet</button><button class="menu" id="menu" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button></div></header>
-<dialog id="wd"><h3>Choose a wallet</h3><div id="wl"></div><p class="note" id="wn">No wallet detected. Install a browser wallet and reload.</p><button class="btn ghost" style="margin-top:14px" onclick="this.closest('dialog').close()">Close</button></dialog>`);
+<dialog id="wd"><div id="acct" hidden><h3>Wallet connected</h3><p><code id="aaddr"></code></p><div class="row"><button class="btn ghost" id="acopy">Copy address</button><button class="btn ghost" id="aswitch">Switch wallet</button><button class="btn" id="adisc">Disconnect</button></div></div><div id="pick"><h3>Choose a wallet</h3><div id="wl"></div><p class="note" id="wn">No wallet detected. Install a browser wallet and reload.</p></div><button class="btn ghost" style="margin-top:14px" onclick="this.closest('dialog').close()">Close</button></dialog>`);
 document.body.insertAdjacentHTML("beforeend", `<footer><div class="wrap"><span class="built"><span>Built on</span><img class="gl" src="assets/genlayer-wordmark.svg" alt="GenLayer"></span>
 <span class="social">${chain.ready() ? `<a href="${C.explorer}/address/${C.contract}" target="_blank" rel="noopener">Contract ${short(C.contract)}</a>` : ""}<a href="${C.github}" target="_blank" rel="noopener">GitHub</a><a href="${C.twitter}" target="_blank" rel="noopener">@amirhp771 on X</a></span></div></footer>`);
 document.querySelectorAll(".themes button").forEach((b) => (b.onclick = () => setTheme(b.dataset.t)));
@@ -60,18 +60,34 @@ async function connect(w) {
     await chain.ensureNetwork(w.provider);
     await chain.useWallet(acc, w.provider);
     PP.provider = w.provider; PP.account = acc; label(); $("#wd").close();
-    w.provider.on?.("accountsChanged", async (a) => {
-      PP.account = a[0] || null; label();
-      if (PP.account) await chain.useWallet(PP.account, w.provider);
+    if (PP.off) PP.off();
+    const onAcc = async (a) => {
+      if (!a[0]) return disconnect(false);
+      PP.account = a[0]; label(); await chain.useWallet(PP.account, w.provider);
       dispatchEvent(new Event("pp-connected"));
-    });
+    };
+    w.provider.on?.("accountsChanged", onAcc);
+    PP.off = () => { w.provider.removeListener?.("accountsChanged", onAcc); PP.off = null; };
     dispatchEvent(new Event("pp-connected"));
   } catch (err) {
     note.hidden = false;
     note.textContent = err?.code === 4001 ? "Connection was rejected in the wallet." : "Could not connect: " + (err?.shortMessage || err?.message || err);
   }
 }
-$("#wbtn").onclick = () => { renderWallets(); $("#wd").showModal(); };
+async function disconnect(revoke = true) {
+  const pr = PP.provider;
+  if (PP.off) PP.off();
+  if (revoke && pr) { try { await pr.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] }); } catch {} }
+  PP.provider = null; PP.account = null; chain.dropWallet(); label();
+  if ($("#wd").open) $("#wd").close();
+  dispatchEvent(new Event("pp-connected"));
+}
+const showWd = (pick) => { $("#acct").hidden = !PP.account || pick; $("#pick").hidden = !!PP.account && !pick; $("#aaddr").textContent = PP.account || ""; if (pick) renderWallets(); };
+$("#wbtn").onclick = () => { renderWallets(); showWd(false); $("#wd").showModal(); };
+$("#adisc").onclick = () => disconnect(true);
+$("#aswitch").onclick = () => showWd(true);
+$("#acopy").onclick = () => navigator.clipboard?.writeText(PP.account).then(() => ($("#acopy").textContent = "Copied"), () => {});
+$("#wd").addEventListener("close", () => ($("#acopy").textContent = "Copy address"));
 
 /* ---------- 3D vault ring (three.js) ---------- */
 const stage = $("#stage");
