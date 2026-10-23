@@ -312,3 +312,27 @@ def test_live_read_fund_and_balance_plumbing():
     assert ("rpc", "sim_fundAccount", ["0xbob", 10**20]) in backend.client.calls
     backend.client.provider.make_request = lambda method, params: (_ for _ in ()).throw(RuntimeError("no faucet"))
     assert backend.fund(acct, 1) is False
+
+
+def test_receipt_ignores_validator_cancelled_after_quorum():
+    """Real Studionet receipt shape: accepted tx whose second leader_receipt entry is an idle validator."""
+    receipt = {
+        "status_name": "ACCEPTED", "result_name": "MAJORITY_AGREE",
+        "consensus_data": {"leader_receipt": [
+            {"mode": "leader", "execution_result": "SUCCESS", "genvm_result": {"stderr": ""}},
+            {"mode": "validator", "vote": "idle", "execution_result": "ERROR",
+             "genvm_result": {"stderr": "Validator execution cancelled after quorum"}},
+        ]},
+    }
+    assert live.receipt_outcome(receipt) == (True, "")
+
+
+def test_receipt_still_fails_when_the_leader_errors():
+    receipt = {
+        "status_name": "ACCEPTED", "result_name": "MAJORITY_AGREE",
+        "consensus_data": {"leader_receipt": [
+            {"mode": "leader", "execution_result": "ERROR", "genvm_result": {"stderr": "boom"}},
+        ]},
+    }
+    ok, _ = live.receipt_outcome(receipt)
+    assert ok is False
