@@ -206,6 +206,8 @@ class Backend:
     def wait_until(self, timestamp: int, report: Report) -> None: ...
     def host_page(self, text: str) -> str: ...
     def settle(self, tx: Optional[Tx], report: Report) -> None: ...
+    def wait_balance(self, address: str, cond: Callable[[int], bool], timeout: float = 300) -> bool:
+        return cond(self.balance(address))
 
 
 _REVERT_RE = re.compile(r"\[(EXPECTED|EXTERNAL|TRANSIENT|LLM_ERROR)\][^\"'\\\n]*")
@@ -310,6 +312,10 @@ class LiveBackend(Backend):
                 time.sleep(5)
         raise last                              # type: ignore[misc]
 
+    def wait_balance(self, address: str, cond: Callable[[int], bool], timeout: float = 300) -> bool:
+        """Emitted transfers can land a little after finalization: poll instead of reading once."""
+        return self._poll(lambda: cond(self.balance(address)), timeout=timeout, step=10)
+
     def fund(self, acct: Acct, wei: int) -> bool:
         """Studio's own faucet is the RPC method sim_fundAccount (genlayer-py only allows it on localnet)."""
         try:
@@ -362,7 +368,20 @@ class LiveBackend(Backend):
             return Tx(ok=None, error=f"no receipt: {str(exc)[:300]}", tx_hash=str(tx_hash))
         ok, detail = receipt_outcome(receipt)
         status = str(receipt.get("status_name") or receipt.get("status") or "")
+        if ok is False and detail == "execution error":
+            self._dump_receipt(fn, tx_hash, receipt)
         return Tx(ok=ok, error=detail, tx_hash=str(tx_hash), status=status, receipt=receipt)
+
+    @staticmethod
+    def _dump_receipt(fn: str, tx_hash: Any, receipt: dict) -> None:
+        """A failure without a contract message is suspicious: keep the whole receipt for diagnosis."""
+        try:
+            path = Path(__file__).resolve().parent.parent / "artifacts" / "failed_receipts.jsonl"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("a") as fh:
+                fh.write(json.dumps({"fn": fn, "tx_hash": str(tx_hash), "receipt": receipt}, default=str) + "\n")
+        except Exception:
+            pass
 
     def read(self, address: str, fn: str, args: list) -> Any:
         return self.client.read_contract(address=address, function_name=fn, args=list(args))
@@ -703,6 +722,7 @@ def s_happy_path(ctx: Ctx) -> None:
     rep.check("bond left the contract", int(c["bond"]) == 0, c["bond"])
     ctx.expect_revert("nothing left to refund", "bob", "claim_refund", cid, match="nothing to refund")
     ctx.B.settle(ctx.last_tx, rep)
+    ctx.B.wait_balance(creator, lambda b: b - creator_before >= raised // 2, 300)
     delta = ctx.B.balance(creator) - creator_before
     rep.soft("creator ended up with the raised money (bond returned, tolerance for fees)",
              delta >= raised - U // 5, f"balance change {delta} wei, expected about {raised}")
@@ -780,6 +800,7 @@ def s_cancel_refund(ctx: Ctx) -> None:
     ctx.expect_ok("carol claims", "carol", "claim_refund", cid)
     rep.check("refund pool is empty", int(ctx.campaign(cid)["refund_pool"]) == 0, ctx.campaign(cid)["refund_pool"])
     ctx.B.settle(ctx.last_tx, rep)
+    ctx.B.wait_balance(bob, lambda b: b >= bob_before - U // 5, 300)
     rep.soft("bob got his money back", ctx.B.balance(bob) >= bob_before - U // 5, f"{ctx.B.balance(bob) - bob_before} wei")
 
 
