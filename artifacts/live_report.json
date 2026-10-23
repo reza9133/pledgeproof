@@ -1,0 +1,1221 @@
+{
+  "counts": {
+    "PASS": 182,
+    "FAIL": 0,
+    "WARN": 2,
+    "SKIP": 0,
+    "INFO": 17
+  },
+  "extra": {
+    "network": "studionet",
+    "rpc": "https://studio.genlayer.com/api"
+  },
+  "results": [
+    {
+      "scenario": "accounts and funding",
+      "name": "creator 0x0893BF17Bf37E9760B46b3cE2e9260F57239090d funded",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "accounts and funding",
+      "name": "bob 0x2efDfd1dE558033E8E9861d416F1070d144FD64f funded",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "accounts and funding",
+      "name": "carol 0x270a7506EB8329768d23e15eD831a93E5933CB36 funded",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "accounts and funding",
+      "name": "mallory 0x4E79373128ced6f74E7C7aF089970a48c14556C9 funded",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "deploy",
+      "name": "PledgeVault deployed at 0xAdcc9e09F098cB815F8A18f0EE14dE72D0AB89c9",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "deploy",
+      "name": "fresh contract has no campaigns",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: bond too small (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: bond too small (error mentions 'bond')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: no bond (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: no bond (error mentions 'bond')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: funding window under one hour (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: funding window under one hour (error mentions 'one hour')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: title with a bidirectional override (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: title with a bidirectional override (error mentions 'bidirectional')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: shares do not add up (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: shares do not add up (error mentions '10000')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: not a JSON array (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: not a JSON array (error mentions 'milestone')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: cap below goal (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: cap below goal (error mentions 'cap')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: zero strikes allowed (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "launch refused: zero strikes allowed (error mentions 'strikes')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "campaign launched",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "newest campaign matches this launch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "new campaign is in funding",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "bond is held",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "creator cannot back their own campaign (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "creator cannot back their own campaign (error mentions 'creators cannot')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "pledge below the minimum (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "pledge below the minimum (error mentions 'minimum')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "a stranger cannot cancel (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "a stranger cannot cancel (error mentions 'only the creator')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "a stranger cannot submit proof (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "funding cannot be closed early (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "funding cannot be closed early (error mentions 'still open')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "nobody can withdraw without a pledge (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "nobody can withdraw without a pledge (error mentions 'no pledge')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "no refund while funding (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "no refund while funding (error mentions 'nothing to refund')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "no review while funding (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "no review while funding (error mentions 'not active')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "no default while funding (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "no default while funding (error mentions 'not active')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "unknown campaign (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "unknown campaign (error mentions 'no campaign')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "bob backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "bob can withdraw",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "withdrawal returned the pledge to the books",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "bob backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "carol backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "raised matches the pledges",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "anyone closes the full campaign",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "campaign is active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "a full campaign takes no more pledges (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "a full campaign takes no more pledges (error mentions 'not accepting')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "creator cannot cancel after funding closed (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "creator cannot cancel after funding closed (error mentions 'funding')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "backers cannot withdraw from an active campaign (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "review with nothing submitted (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "review with nothing submitted (error mentions 'no submitted proof')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "campaign is not overdue (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "campaign is not overdue (error mentions 'not overdue')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: plain http (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: plain http (error mentions 'proof URL')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: localhost (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: localhost (error mentions 'proof URL')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: IP address (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: IP address (error mentions 'proof URL')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: backslash trick (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: backslash trick (error mentions 'proof URL')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: hex-number host (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "proof URL refused: hex-number host (error mentions 'proof URL')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "access control and input validation (no LLM)",
+      "name": "milestone still open after the refused URLs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "campaign launched",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "newest campaign matches this launch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "bob backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "carol backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "raised matches the pledges",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "anyone closes the full campaign",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "campaign is active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "proof page hosted",
+      "status": "INFO",
+      "detail": "https://paste.rs/Z31dL"
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "hosted page is readable and carries the token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "proof submitted",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "milestone 1, try 1",
+      "status": "INFO",
+      "detail": "state=passed verdict=met confidence=100 attempts=1 reason='The page contains a public changelog with three distinct released changes, each associated with a version number.'"
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "milestone 1 approved by the validators",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "milestone 1 tranche is exact",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "milestone 1 approval carries a real quote",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "proof page hosted",
+      "status": "INFO",
+      "detail": "https://paste.rs/UpG0h"
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "hosted page is readable and carries the token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "proof submitted",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "milestone 2, try 1",
+      "status": "INFO",
+      "detail": "state=passed verdict=met confidence=95 attempts=1 reason=\"The page contains a release note with a title ('Open Telescope Kit - version 1.0 release note'), a release date, and at least three bullet points describing shi\""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "milestone 2 approved by the validators",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "milestone 2 tranche is exact",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "milestone 2 approval carries a real quote",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "campaign completed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "everything was released",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "bond left the contract",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "nothing left to refund (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "nothing left to refund (error mentions 'nothing to refund')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "contract balance after payouts (0 means the transfers were executed)",
+      "status": "INFO",
+      "detail": "9099999999999999999"
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "creator ended up with the raised money (bond returned, tolerance for fees)",
+      "status": "WARN",
+      "detail": "balance change -200000000000000000 wei, expected about 4000000000000000000"
+    },
+    {
+      "scenario": "happy path: two milestones, bond returned",
+      "name": "paid out",
+      "status": "INFO",
+      "detail": "raised=4000000000000000000 bond=200000000000000000"
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "campaign launched",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "newest campaign matches this launch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "bob backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "carol backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "raised matches the pledges",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "anyone closes the full campaign",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "campaign is active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "proof page hosted",
+      "status": "INFO",
+      "detail": "https://paste.rs/qLOnG"
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "proof submitted",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "verdict",
+      "status": "INFO",
+      "detail": "state=open verdict=unclear confidence=0 attempts=1 reason='The proof token for this milestone was not found on the page.'"
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "nothing was released",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "the creator was not paid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "campaign is still active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "no strike was taken",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "reason mentions 'token'",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "the creator may try again (milestone open)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "a failed review cannot be replayed (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page without the proof token",
+      "name": "a failed review cannot be replayed (error mentions 'no submitted proof')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "campaign launched",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "newest campaign matches this launch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "bob backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "carol backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "raised matches the pledges",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "anyone closes the full campaign",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "campaign is active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "proof page hosted",
+      "status": "INFO",
+      "detail": "https://paste.rs/2SpYt"
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "proof submitted",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "verdict",
+      "status": "INFO",
+      "detail": "state=open verdict=unclear confidence=0 attempts=1 reason='The proof token for this milestone was not found on the page.'"
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "nothing was released",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "no strike for a wrong token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "page with another milestone's token",
+      "name": "treated as unclear",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "campaign launched",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "newest campaign matches this launch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "bob backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "carol backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "raised matches the pledges",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "anyone closes the full campaign",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "campaign is active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "proof page hosted",
+      "status": "INFO",
+      "detail": "https://paste.rs/F8Wbd"
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "hosted page is readable and carries the token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "proof submitted",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "verdict",
+      "status": "INFO",
+      "detail": "state=open verdict=not_met confidence=95 attempts=1 reason=\"The page only contains promises and plans for future delivery ('Coming soon', 'We plan to ship'), with no actual demonstration of released changes or a public c\""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "nothing was released",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "the creator was not paid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "campaign is still active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "the creator may try again (milestone open)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "a failed review cannot be replayed (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "promises and a roadmap are not delivery",
+      "name": "a failed review cannot be replayed (error mentions 'no submitted proof')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "campaign launched",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "newest campaign matches this launch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "bob backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "carol backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "raised matches the pledges",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "anyone closes the full campaign",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "campaign is active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "proof page hosted",
+      "status": "INFO",
+      "detail": "https://paste.rs/aB96Y"
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "hosted page is readable and carries the token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "proof submitted",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "verdict",
+      "status": "INFO",
+      "detail": "state=open verdict=not_met confidence=90 attempts=1 reason='The page contains only a notice to the AI which must be disregarded per instructions and shows no changelog or any released changes with version numbers.'"
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "nothing was released",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "the creator was not paid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "campaign is still active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "the creator may try again (milestone open)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "a failed review cannot be replayed (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "prompt injection on the proof page",
+      "name": "a failed review cannot be replayed (error mentions 'no submitted proof')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "campaign launched",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "newest campaign matches this launch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "bob backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "carol backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "raised matches the pledges",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "anyone closes the full campaign",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "campaign is active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "proof page hosted",
+      "status": "INFO",
+      "detail": "https://paste.rs/w6w6m"
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "hosted page is readable and carries the token",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "proof submitted",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "verdict",
+      "status": "INFO",
+      "detail": "state=open verdict=not_met confidence=100 attempts=1 reason='The page contains a recipe for pancakes and no evidence of a telescope project changelog or version numbers.'"
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "nothing was released",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "the creator was not paid",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "campaign is still active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "the creator may try again (milestone open)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "a failed review cannot be replayed (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "unrelated page that carries the token",
+      "name": "a failed review cannot be replayed (error mentions 'no submitted proof')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "campaign launched",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "newest campaign matches this launch",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "bob backs 2 units",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "carol backs 1 unit",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "creator cancels",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "status cancelled",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "bond returned at once",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "bob can see his refund",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "bob claims",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "bob cannot claim twice (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "bob cannot claim twice (error mentions 'no unclaimed')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "a stranger cannot claim (state unchanged)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "a stranger cannot claim (error mentions 'no unclaimed')",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "carol claims",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "refund pool is empty",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "contract balance after all claims (0 means the transfers were executed)",
+      "status": "INFO",
+      "detail": "30099999999999999999"
+    },
+    {
+      "scenario": "cancel while funding, refunds, bond back",
+      "name": "bob got his money back",
+      "status": "WARN",
+      "detail": "-2000000000000000000 wei"
+    }
+  ]
+}
