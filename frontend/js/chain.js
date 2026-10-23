@@ -12,10 +12,32 @@ async function load() {
 
 export const ready = () => /^0x[0-9a-fA-F]{40}$/.test(C.contract || "");
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Studio RPC and the CDN can hiccup ("unknown RPC error"): retry with growing delays, and
+// fall back to the last good answer for the same call (this tab) so a page never goes blank.
+const ck = (fn, args) => "pp:" + fn + ":" + JSON.stringify(args, (_, v) => (typeof v === "bigint" ? v.toString() : v));
 export async function read(fn, args = []) {
-  const { createClient, studionet } = await load();
-  reader ||= createClient({ chain: studionet });
-  return reader.readContract({ address: C.contract, functionName: fn, args });
+  let err;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const { createClient, studionet } = await load();
+      reader ||= createClient({ chain: studionet });
+      const v = await reader.readContract({ address: C.contract, functionName: fn, args });
+      try { sessionStorage.setItem(ck(fn, args), JSON.stringify(v)); } catch {}
+      return v;
+    } catch (e) { err = e; if (contractError(e)) throw e; await sleep(400 * (i + 1) ** 2); }
+  }
+  try { const old = sessionStorage.getItem(ck(fn, args)); if (old) return JSON.parse(old); } catch {}
+  throw err;
+}
+
+// Run fn over items with limited concurrency; failed items are skipped and counted.
+export async function pool(items, fn, n = 2) {
+  const out = new Array(items.length); let k = 0, failed = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (k < items.length) { const i = k++; try { out[i] = await fn(items[i]); } catch { failed++; } }
+  }));
+  return { values: out.filter((v) => v !== undefined), failed };
 }
 
 export async function ensureNetwork(provider) {

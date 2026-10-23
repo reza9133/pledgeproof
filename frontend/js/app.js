@@ -144,7 +144,7 @@ if (!reduced) {
 /* ---------- chain data ---------- */
 const getCampaign = (id) => chain.read("get_campaign", [BigInt(id)]);
 const notReady = (el) => { el.innerHTML = `<p class="note">The contract address is not set. Add it to js/config.js.</p>`; };
-const failRead = (el, e) => { el.innerHTML = `<p class="note">Could not read the contract right now (${esc(e?.shortMessage || e?.message || e)}). Try again in a moment.</p>`; };
+const failRead = (el, e, retry) => { el.innerHTML = `<p class="note">Could not read the contract right now (${esc(e?.shortMessage || e?.message || e)}). <button class="btn ghost" id="retry" style="padding:4px 14px">Retry</button></p>`; const b = el.querySelector("#retry"); if (b) b.onclick = retry || (() => location.reload()); };
 
 const card = (c) => {
   const ms = c.milestones || [], goal = N(c.goal), raised = N(c.raised);
@@ -173,14 +173,18 @@ if (list) {
   document.querySelectorAll("#filters button").forEach((b) => (b.onclick = () => {
     filter = b.dataset.s; document.querySelectorAll("#filters button").forEach((x) => x.setAttribute("aria-pressed", x === b)); draw();
   }));
-  (async () => {
+  const loadList = async () => {
     if (!chain.ready()) return notReady(list);
     list.innerHTML = `<p class="note">Loading campaigns…</p>`;
     try {
       const ids = (await chain.read("list_campaign_ids", [""])).map(Number).sort((a, b) => b - a).slice(0, 48);
-      all = await Promise.all(ids.map(getCampaign)); draw();
-    } catch (e) { failRead(list, e); }
-  })();
+      const r = await chain.pool(ids, getCampaign);
+      if (ids.length && !r.values.length) throw new Error("no campaign could be loaded");
+      all = r.values; draw();
+      if (r.failed) list.insertAdjacentHTML("beforeend", `<p class="note full">${r.failed} campaign(s) could not be loaded. <button class="btn ghost" id="retry" style="padding:4px 14px">Retry</button></p>`), ($("#retry").onclick = loadList);
+    } catch (e) { failRead(list, e, loadList); }
+  };
+  loadList();
 }
 
 /* ---------- campaign detail ---------- */
@@ -346,10 +350,10 @@ if (mine) {
     mine.innerHTML = `<p class="note">Loading your campaigns…</p>`;
     try {
       const ids = (await chain.read("list_campaign_ids", [""])).map(Number).sort((a, b) => b - a);
-      const rows = await Promise.all(ids.map(async (id) => {
+      const rows = (await chain.pool(ids, async (id) => {
         const [c, p] = await Promise.all([getCampaign(id), chain.read("get_position", [BigInt(id), PP.account]).catch(() => ({ pledged: "0", refundable_now: "0" }))]);
         return { c, p };
-      }));
+      })).values;
       if (run !== seq) return;
       const made = rows.filter((r) => same(r.c.creator, PP.account)).map((r) => r.c);
       const backed = rows.filter((r) => N(r.p.pledged) > 0n);
@@ -359,7 +363,7 @@ if (mine) {
       mine.innerHTML = `<div class="kv"><div><small>Account</small><b>${short(PP.account)}</b></div><div><small>Campaigns backed</small><b>${backed.length}</b></div><div><small>Total pledged</small><b>${gen(total)} GEN</b></div><div><small>Refundable now</small><b>${gen(owed)} GEN</b></div><div><small>Campaigns launched</small><b>${made.length}</b></div></div>
 <h3 style="margin-top:34px">Backed by me</h3><div class="grid">${backed.length ? backed.map(bcard).join("") : `<p class="note">You have not backed any campaign yet. <a href="campaigns.html">Browse campaigns</a>.</p>`}</div>
 <h3 style="margin-top:34px">Launched by me</h3><div class="grid">${made.length ? made.map(card).join("") : `<p class="note">You have not launched a campaign. <a href="launch.html">Launch one</a>.</p>`}</div>`;
-    } catch (e) { if (run === seq) failRead(mine, e); }
+    } catch (e) { if (run === seq) failRead(mine, e, load); }
   };
   addEventListener("pp-connected", load); load();
 }
