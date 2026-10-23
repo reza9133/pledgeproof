@@ -1,7 +1,7 @@
 // Thin wrapper around genlayer-js: reads need no wallet, writes are signed by the EIP-6963 wallet.
 const C = window.PP_CONFIG;
 const SDK = "https://esm.sh/genlayer-js@1.1.8";
-let lib = null, reader = null, writer = null;
+let lib = null, reader = null, writer = null, prov = null;
 
 async function load() {
   if (lib) return lib;
@@ -34,10 +34,11 @@ export async function ensureNetwork(provider) {
   }
 }
 
-export function dropWallet() { writer = null; }
+export function dropWallet() { writer = null; prov = null; }
 
 export async function useWallet(account, provider) {
   const { createClient, studionet } = await load();
+  prov = provider;
   writer = createClient({ chain: studionet, account, provider });
 }
 
@@ -73,6 +74,7 @@ export function outcome(r) {
 
 export async function write(fn, args = [], value = 0n, onHash) {
   if (!writer) throw new Error("Connect a wallet first.");
+  try { await ensureNetwork(prov); } catch {}
   const hash = await writer.writeContract({ address: C.contract, functionName: fn, args, value });
   onHash?.(hash);
   const receipt = await writer.waitForTransactionReceipt({ hash, status: "ACCEPTED", interval: 3000, retries: 400 });

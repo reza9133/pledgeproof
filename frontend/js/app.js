@@ -42,7 +42,11 @@ setTheme(document.documentElement.dataset.theme);
 /* ---------- EIP-6963 wallet discovery ---------- */
 const wallets = new Map();
 window.PP = { provider: null, account: null };
-addEventListener("eip6963:announceProvider", (e) => { wallets.set(e.detail.info.uuid, e.detail); renderWallets(); });
+const KEY = "pp-wallet";
+addEventListener("eip6963:announceProvider", (e) => {
+  wallets.set(e.detail.info.uuid, e.detail); renderWallets();
+  if (!PP.account && !PP.busy && safe(() => localStorage.getItem(KEY)) === e.detail.info.rdns) connect(e.detail, true); /* restore session after page change */
+});
 dispatchEvent(new Event("eip6963:requestProvider"));
 function renderWallets() {
   const l = $("#wl"); l.innerHTML = ""; $("#wn").hidden = wallets.size > 0;
@@ -53,12 +57,15 @@ function renderWallets() {
   });
 }
 const label = () => ($("#wbtn").textContent = PP.account ? short(PP.account) : "Connect wallet");
-async function connect(w) {
+async function connect(w, silent = false) {
   const note = $("#wn");
+  PP.busy = true;
   try {
-    const [acc] = await w.provider.request({ method: "eth_requestAccounts" });
-    await chain.ensureNetwork(w.provider);
+    const [acc] = await w.provider.request({ method: silent ? "eth_accounts" : "eth_requestAccounts" });
+    if (!acc) { safe(() => localStorage.removeItem(KEY)); return; }
+    if (!silent) await chain.ensureNetwork(w.provider);
     await chain.useWallet(acc, w.provider);
+    safe(() => localStorage.setItem(KEY, w.info.rdns));
     PP.provider = w.provider; PP.account = acc; label(); $("#wd").close();
     if (PP.off) PP.off();
     const onAcc = async (a) => {
@@ -70,12 +77,14 @@ async function connect(w) {
     PP.off = () => { w.provider.removeListener?.("accountsChanged", onAcc); PP.off = null; };
     dispatchEvent(new Event("pp-connected"));
   } catch (err) {
+    if (silent) return;
     note.hidden = false;
     note.textContent = err?.code === 4001 ? "Connection was rejected in the wallet." : "Could not connect: " + (err?.shortMessage || err?.message || err);
-  }
+  } finally { PP.busy = false; }
 }
 async function disconnect(revoke = true) {
   const pr = PP.provider;
+  safe(() => localStorage.removeItem(KEY));
   if (PP.off) PP.off();
   if (revoke && pr) { try { await pr.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] }); } catch {} }
   PP.provider = null; PP.account = null; chain.dropWallet(); label();
