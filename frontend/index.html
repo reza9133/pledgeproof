@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PledgeProof: crowdfunding that pays on proof</title><meta name="description" content="Milestone crowdfunding where GenLayer consensus releases the money.">
+<link rel="icon" href="assets/logo.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css"></head><body data-page="index">
+<main><div class="hero"><canvas id="stage" aria-hidden="true"></canvas><div class="wrap"><h1>Money moves<br><span>when proof does.</span></h1>
+<p>Backers pledge GEN. A creator is paid one milestone at a time, only after GenLayer validators read the public proof page and agree the work shipped. If it doesn't, backers get the rest back plus the creator's bond.</p>
+<div class="row"><a class="btn" href="campaigns.html">Browse campaigns</a><a class="btn ghost" href="launch.html">Launch one</a></div>
+<p class="note" id="stats" hidden></p>
+<div class="stats3 rv"><div><b data-count="3">0</b><small>Themes: light, dim, dark</small></div><div><b data-count="6">0</b><small>Milestones per campaign, max</small></div><div><b data-count="5">0</b><small>% minimum creator bond</small></div></div>
+<div class="built"><span>Powered by</span><img class="gl" src="assets/genlayer-wordmark.svg" alt="GenLayer"></div></div></div>
+<section class="alt"><div class="wrap"><h2>Three guarantees</h2><div class="grid">
+<div class="card tilt rv"><h3>Paid per milestone</h3><p>Each tranche is a fixed share of the raise, set before anyone pledges.</p></div>
+<div class="card tilt rv"><h3>Judged by validators</h3><p>No platform and no vote. Independent validators read the proof page and must agree.</p></div>
+<div class="card tilt rv"><h3>Creator has skin in the game</h3><p>A bond of at least 5% of the goal is locked and goes to backers if the creator fails.</p></div></div></div></section>
+<section><div class="wrap"><h2 class="rv">From pledge to payout</h2><p class="rv">Five steps, all enforced by the contract and judged by GenLayer validators.</p><div class="flow rv">
+<div><b>Launch</b><p>Pitch, goal, milestones and a locked bond.</p></div><div><b>Fund</b><p>Backers pledge GEN and may withdraw until the deadline.</p></div><div><b>Prove</b><p>Creator posts a public page with the proof token.</p></div><div><b>Review</b><p>Validators read it and reach consensus.</p></div><div><b>Release</b><p>Tranche paid, or refunds plus the bond.</p></div></div></div></section>
+<section class="alt"><div class="wrap"><h2 class="rv">Questions</h2>
+<details class="rv"><summary>What network is this on?</summary><p>GenLayer Studionet (chain id 61999). Your wallet is asked to add it when you connect.</p></details>
+<details class="rv"><summary>Which wallets work?</summary><p>Any browser wallet that supports EIP-6963 wallet discovery. Pick yours from the list when you press Connect wallet.</p></details>
+<details class="rv"><summary>What if the page is unclear?</summary><p>Nothing happens. No payment and no strike, and the creator can fix the page and resubmit.</p></details>
+<details class="rv"><summary>Who judges delivery?</summary><p>Independent GenLayer validators, using the milestone text backers read before pledging.</p></details></div></section>
+<section><div class="wrap"><div class="cta rv"><h2>Back work that proves itself.</h2><p>Or launch your own campaign and let your proof speak.</p><div class="row"><a class="btn" href="campaigns.html">Browse campaigns</a><a class="btn ghost" href="launch.html">Launch one</a></div></div></div></section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/config.js"></script><script type="module" src="js/app.js"></script></body></html>
