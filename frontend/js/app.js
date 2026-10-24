@@ -260,7 +260,12 @@ if (detail) {
     setTx(name + ": confirm in your wallet…");
     try {
       const r = await fn((h) => { hash = h; setTx(name + ": submitted, waiting for validators…" + (slow ? " (this can take a few minutes)" : ""), false, h); });
-      setTx(name + ": done.", false, hash || r?.hash);
+      /* ACCEPTED is provisional and money emitted by the contract moves only at FINALIZED: do not say "done" before that. */
+      setTx(name + ": accepted by the validators. Not final yet: payouts are sent only when the transaction is finalized.", false, hash || r?.hash);
+      await render(true);
+      const fin = r?.finalized ? await r.finalized : { ok: true };
+      setTx(fin.timedOut ? name + ": accepted, but finalization has not been seen yet. Check the transaction again later; nothing is final until then."
+        : fin.ok ? name + ": finalized." : name + ": accepted but NOT finalized as successful. Check the transaction.", !fin.ok, hash || r?.hash);
     } catch (e) { setTx(name + " failed: " + errText(e), true, hash || e?.hash); }
     await render(true);
   }
@@ -279,6 +284,8 @@ if (detail) {
     if (me) { try { pos = await chain.read("get_position", [BigInt(id), me]); } catch {} }
     const cur = ms[c.next_milestone], pledged = N(pos.pledged);
     if (c.status === "active" && isCreator && cur) { try { token = await chain.read("get_proof_token", [BigInt(id), c.next_milestone]); } catch {} }
+    let pays = [], led = null;
+    try { pays = await chain.payouts(id); led = await chain.ledger(); } catch {}
     if (rid !== rseq) return;
     const t = nowSec();
 
@@ -288,6 +295,9 @@ if (detail) {
 ${m.proof_url ? `<small>Proof: <a href="${esc(httpsOnly(m.proof_url))}" target="_blank" rel="noopener noreferrer">${esc(m.proof_url)}</a></small>` : ""}
 ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (confidence ${m.confidence}) · ${m.attempts} review${m.attempts === 1 ? "" : "s"}${m.reason ? `<br>${esc(m.reason)}` : ""}${m.quote ? `<br><i>“${esc(m.quote)}”</i>` : ""}</div>` : ""}</li>`).join("");
 
+    const PATIENCE = 3 * 86400, kindName = { tranche: "Milestone payment", tranche_and_bond: "Last milestone payment + bond", refund: "Refund", pledge_withdrawn: "Withdrawn pledge", bond_returned: "Bond returned" };
+    const resendable = (p) => p.state === "sent" && t >= Number(p.last_sent_at) + PATIENCE && led && led.state === "none_landed";
+    const payHtml = pays.length ? `<h3 style="margin-top:34px">Payments</h3><p class="note">Each payment is sent by the contract and stays <b>sent</b> until the contract's own balance shows the money left. It then becomes <b>delivered</b>. A payment that never arrives can be sent again after 3 days.</p><ol class="mslist">${pays.map((p) => `<li class="ms ${p.state === "settled" ? "passed" : "pending"}"><div class="row" style="justify-content:space-between"><b>${esc(kindName[p.kind] || p.kind)} · ${gen(p.amount)} GEN</b><span class="pill ${p.state === "settled" ? "completed" : "active"}">${p.state === "settled" ? "delivered" : "sent, not confirmed yet"}</span></div><small>To <a href="${C.explorer}/address/${esc(p.to)}" target="_blank" rel="noopener noreferrer">${short(p.to)}</a> · attempts ${p.attempts}</small>${resendable(p) ? ` <button class="btn ghost mini" data-resend="${esc(p.id)}" type="button">Send again</button>` : ""}</li>`).join("")}</ol>${led && led.state === "all_landed" ? `<button class="btn ghost" id="reconcile" type="button">Confirm deliveries</button>` : ""}` : "";
     const acts = [];
     if (!me) acts.push(`<p class="note">Connect a wallet to take part in this campaign.</p>`);
     else {
@@ -322,6 +332,7 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
 <div><small>Released</small><b>${gen(c.released)} GEN</b></div><div><small>Creator bond</small><b>${gen(c.bond)} GEN</b></div><div><small>Funding ends</small><b>${when(c.funding_deadline)}</b></div>
 <div><small>Strikes</small><b>${c.strikes} / ${c.max_strikes}</b></div>${me ? `<div><small>Your pledge</small><b>${gen(pledged)} GEN</b></div>` : ""}</div>
 <h3 style="margin-top:34px">Milestones</h3><ol class="mslist">${msHtml}</ol>
+${payHtml}
 <h3 style="margin-top:34px">Actions</h3><div class="actions">${acts.join("")}</div>`;
 
     const on = (sel, fn) => { const el = $(sel, detail); if (el) el.onclick = fn; };
@@ -344,6 +355,8 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
     on("#review", () => run("Review", (h) => chain.write("review", [BigInt(id)], 0n, h), true));
     on("#default", () => run("Declare default", (h) => chain.write("declare_default", [BigInt(id)], 0n, h)));
     on("#refund", () => run("Refund", (h) => chain.write("claim_refund", [BigInt(id)], 0n, h)));
+    on("#reconcile", () => run("Confirm deliveries", (h) => chain.write("reconcile_payouts", [50], 0n, h)));
+    detail.querySelectorAll("[data-resend]").forEach((b) => (b.onclick = () => run("Send payment again", (h) => chain.write("retry_payout", [BigInt(b.dataset.resend)], 0n, h))));
   }
   addEventListener("pp-connected", () => render());
   PP.refresh = () => render(true);
@@ -404,9 +417,9 @@ if (f) {
         if (same(c.creator, PP.account)) { if (c.title === b.title) { target = i; break; } if (target === null) target = i; }
       }
       const href = target === null ? "campaigns.html" : "campaign.html?id=" + target;
-      msg("Campaign launched.", false, hash);
+      msg("Campaign accepted by the validators (not final yet).", false, hash);
       const open = document.createElement("a"); open.href = href; open.textContent = " Open it now →"; status.append(open);
-      setTimeout(() => (location.href = href), 4000);
+      r.finalized?.then((f) => { msg(f.ok ? "Campaign launched and finalized." : f.timedOut ? "Campaign accepted; finalization not seen yet." : "Accepted but not finalized as successful.", !f.ok, hash); status.append(open); });
     } catch (e) { msg("Launch failed: " + (chain.contractError(e) || e?.shortMessage || e?.message || e), true, hash || e?.hash); upd(); }
   };
 }

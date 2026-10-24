@@ -306,6 +306,42 @@ the addresses to fund by hand in [Studio](https://studio.genlayer.com).
 To host proof pages yourself, set `PP_PAGE_CMD` to a command that takes a file
 path and prints a public `https://` URL.
 
+## Payout ledger (payments that do not arrive)
+
+Campaign books are cleared when a payment is requested (pledge zeroed, tranche
+released, bond released). To keep a failed delivery from erasing anyone's
+entitlement, every payment is also written to `payouts`:
+
+| piece | meaning |
+|---|---|
+| `held` | everything the contract received and has not yet *proven* paid out |
+| `inflight_total` | payments emitted and not yet proven |
+| `get_ledger()` | `held`, `inflight_total`, the contract's own `balance` and a state: `idle`, `all_landed`, `none_landed`, `partial` |
+| `reconcile_payouts(max)` | anyone; marks payments `settled` only when the balance proves **all** in-flight payments left |
+| `retry_payout(id)` | emits a payment again, only after 3 days **and** while nothing at all has left the contract |
+| `list_payouts(cid, start, limit)` / `get_payout(id)` | per-campaign evidence for the UI and the manifest |
+
+Why it is conservative: a re-send is only possible while `balance >= held`, so a
+second transfer can never be paid from other people's money; stray deposits only
+make the contract look *less* delivered, never more. If some but not all
+payments landed (`partial`) the balance cannot say which one, so nothing is
+settled or re-sent until the picture is clear. `held == balance` after
+`reconcile_payouts` is the invariant the live script checks.
+
+Not verified here: `self.balance` (read by `_balance()`) and the transfer call
+were written against the GenLayer SDK from memory and could not be run in the
+sandbox this change was made in. Run the Direct Mode suite and a live run.
+
+## Evidence
+
+`python scripts/live_e2e.py` writes, next to `live_report.json`:
+
+* `artifacts/manifest.json` and `artifacts/MANIFEST.md`: deployment tx, every
+  transaction with its status now, the vault's outgoing payouts, and each
+  recipient's balance before/after against what they sent in and were paid;
+* hard failures (not warnings) when a payout is not `settled` after finalization
+  or a recipient balance does not match.
+
 ## Limits and honest caveats
 
 * The LLM can still be fooled by a cleverly written page. The prompt fence,
@@ -318,7 +354,24 @@ path and prints a public `https://` URL.
 * Acceptance criteria are written by the creator. Vague criteria are a red flag
   for backers.
 * Payouts are emitted as GenLayer transfers and arrive when the transaction
-  finalizes.
+  finalizes. The contract cannot see whether an emitted transfer was
+  delivered, so it keeps a **payout ledger** (see below) instead of trusting it.
+* Payouts go to ordinary wallets, so `_emit()` sends them as **external
+  messages** through the vault's ghost contract (an `@gl.evm.contract_interface`
+  stub with `emit_transfer`). The first version used
+  `gl.get_contract_at(to).emit_transfer(...)`, which is an *internal* message to
+  another Intelligent Contract and is the documented wrong path for an EOA; it
+  is the most likely reason the first Studionet run showed no money arriving.
+  The direct-mode harness now fails any test in which the vault sends an
+  internal message, so the old call cannot come back. External messages always
+  run on finalization, never earlier. The corrected contract has **not** been
+  run on Studionet yet: `artifacts/MANIFEST.md` from a new live run (every payout
+  `settled`, every recipient balance matching) is still the proof of delivery.
+* `retry_payout` re-sends only after a 3-day patience window and only while the
+  vault's balance shows nothing has left. If the transaction that emitted the
+  first message had still not finalized after three days (its external message
+  runs at finalization), a re-send could pay twice, out of other people's
+  money. Finalize pending transactions before retrying.
 * Proof pages must be plain public `https://` URLs on a domain name. A public
   domain that merely *resolves* to a private address cannot be detected by
   string checks; the validators' own fetch sandbox is the defence there.

@@ -148,6 +148,9 @@ export function outcome(r) {
   return { ok: null, error };
 }
 
+// An accepted transaction is provisional: validators can still be challenged, and a payment emitted by the contract is only
+// delivered when the transaction is FINALIZED. write() resolves at ACCEPTED (the outcome is known); callers that report
+// "done" or money moved must await result.finalized, which resolves { ok, receipt } or { ok: false, timedOut } at FINALIZED.
 export async function write(fn, args = [], value = 0n, onHash) {
   if (!writer) throw new Error("Connect a wallet first.");
   await ensureNetwork(prov); // throws a clear error instead of sending the transaction on the wrong network
@@ -156,5 +159,12 @@ export async function write(fn, args = [], value = 0n, onHash) {
   const receipt = await writer.waitForTransactionReceipt({ hash, status: "ACCEPTED", interval: 3000, retries: 400 });
   const o = outcome(receipt);
   if (o.ok === false) { const e = new Error(o.error); e.hash = hash; throw e; }
-  return { hash, receipt, unconfirmed: o.ok === null };
+  const w = writer;
+  const finalized = w.waitForTransactionReceipt({ hash, status: "FINALIZED", interval: 5000, retries: 1200 })
+    .then((r) => ({ ok: outcome(r).ok !== false, receipt: r, timedOut: false }), () => ({ ok: false, receipt: null, timedOut: true }));
+  return { hash, receipt, unconfirmed: o.ok === null, finalized };
 }
+
+// Payment evidence for a campaign: the vault's own payout ledger (what was emitted, and whether its balance proved it left).
+export const payouts = (id) => read("list_payouts", [BigInt(id), 0n, 100n]);
+export const ledger = () => read("get_ledger", []);

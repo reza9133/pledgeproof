@@ -1,3 +1,5 @@
+> **Superseded for payments.** This report predates the payout ledger. Its two balance warnings (creator +4 GEN missing, bob's 2 GEN refund not visible) are unresolved: the vault still held 9.1 GEN / 30.1 GEN after the payouts. Re-run `scripts/live_e2e.py` and use `artifacts/MANIFEST.md`.
+
 # PledgeProof live end-to-end report
 
 Run against GenLayer Studionet with real validators and a real LLM.
@@ -56,6 +58,8 @@ Run against GenLayer Studionet with real validators and a real LLM.
 - **cancel while funding, refunds, bond back** - bob got his money back: -2000000000000000000 wei
 
 Both warnings are balance checks. Payouts are emitted as GenLayer transfers and arrive when the transaction finalizes, so a balance read right after the run can still show the old value. Contract state (status, tranche, bond, refund pool) was checked and passed.
+
+> **Steward note (round 5):** this run used `gl.get_contract_at(to).emit_transfer`, an internal message to another Intelligent Contract, to pay wallets. That is not the documented way to pay an EOA, and the vault's balance never dropping (9.1 and 30.1 GEN) is consistent with it. The explanation above ("arrives at finalization") was never demonstrated. `_emit` now uses an external EVM message. This report predates that change; a new `scripts/live_e2e.py` run and its `MANIFEST.md` are still needed.
 
 ## Full results
 

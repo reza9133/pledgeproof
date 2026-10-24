@@ -46,6 +46,8 @@ from typing import Any, Callable, Optional
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLE = ROOT / "dist" / "pledge_vault.bundle.py"
 REPORT_PATH = ROOT / "artifacts" / "live_report.json"
+MANIFEST_JSON = ROOT / "artifacts" / "manifest.json"
+MANIFEST_MD = ROOT / "artifacts" / "MANIFEST.md"
 ACCOUNTS_PATH = ROOT / ".live_accounts.json"        # git-ignored, throw-away testnet keys
 
 GEN = 10**18
@@ -121,6 +123,7 @@ class Report:
         self.scenario = "setup"
         self.echo = echo
         self.started = time.time()
+        self.manifest: dict = {}
 
     def section(self, title: str) -> None:
         self.scenario = title
@@ -198,6 +201,11 @@ class Backend:
 
     def new_account(self, label: str) -> Acct: ...
     def fund(self, acct: Acct, wei: int) -> bool: ...
+
+    def tx_status(self, tx_hash: str) -> str:
+        """Current consensus status of a transaction (ACCEPTED, FINALIZED, ...); '' when unknown."""
+        return ""
+
     def balance(self, address: str) -> int: ...
     def deploy(self, acct: Acct, code: str) -> str: ...
     def write(self, acct: Acct, address: str, fn: str, args: list, value: int = 0) -> Tx: ...
@@ -354,8 +362,20 @@ class LiveBackend(Backend):
                     raise
                 time.sleep(10)                  # the public gateway hiccuped: ask again, the tx is still there
 
+    def tx_status(self, tx_hash: str) -> str:
+        if not tx_hash:
+            return ""
+        try:
+            got = self.client.get_transaction(transaction_hash=tx_hash)
+        except Exception:
+            return "unknown"
+        if isinstance(got, dict):
+            return str(got.get("status_name") or got.get("statusName") or got.get("status") or "unknown")
+        return str(getattr(got, "status_name", None) or getattr(got, "status", None) or "unknown")
+
     def deploy(self, acct: Acct, code: str) -> str:
         tx_hash = self.client.deploy_contract(code=code, account=acct.raw, args=[])
+        self.last_deploy_tx = str(tx_hash)
         receipt = self._wait(tx_hash)
         ok, detail = receipt_outcome(receipt)
         if ok is False:
@@ -427,6 +447,54 @@ class LiveBackend(Backend):
     # -- pages ----------------------------------------------------------------
     def host_page(self, text: str) -> str:
         return host_public_page(text)
+
+
+def _child_messages(receipt: Optional[dict]) -> list:
+    """Messages / child transactions a receipt reports (the key differs between Studio versions)."""
+    if not isinstance(receipt, dict):
+        return []
+    for key in ("triggered_transactions", "triggeredTransactions", "messages", "emitted_messages", "child_transactions"):
+        value = receipt.get(key)
+        if value:
+            return json.loads(json.dumps(value, default=str))[:20]
+    return []
+
+
+def write_manifest(ctx: "Ctx", backend: "Backend", network: str, rpc: str) -> dict:
+    """artifacts/manifest.json + MANIFEST.md: deployment, every transaction, outgoing transfers and balance evidence."""
+    for row in ctx.txs:
+        row["status_now"] = backend.tx_status(row["tx_hash"]) if row["tx_hash"] else ""
+    deploy_tx = str(getattr(backend, "last_deploy_tx", ""))
+    manifest = {
+        "network": network, "rpc": rpc, "contract": ctx.contract,
+        "deployment": {"tx_hash": deploy_tx, "status_now": backend.tx_status(deploy_tx) if deploy_tx else ""},
+        "accounts": {l: a.address for l, a in ctx.accts.items()},
+        "transactions": ctx.txs,
+        "outgoing_transfers_and_balances": ctx.payout_rows,
+        "unfinalized_transactions": [t["tx_hash"] for t in ctx.txs
+                                     if t["tx_hash"] and t.get("status_now") and "FINAL" not in t["status_now"].upper()],
+    }
+    MANIFEST_JSON.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST_JSON.write_text(json.dumps(manifest, indent=2, default=str))
+    lines = ["# Live run manifest", "", f"* network: `{network}`  rpc: `{rpc}`", f"* contract: `{ctx.contract}`",
+             f"* deployment tx: `{deploy_tx or 'n/a'}` ({manifest['deployment']['status_now'] or 'status unknown'})", "",
+             "## Transactions", "", "| # | scenario | call | from | value (wei) | tx | status now |", "|---|---|---|---|---|---|---|"]
+    for t in ctx.txs:
+        lines.append(f"| {t['n']} | {t['scenario']} | `{t['fn']}` | {t['who']} | {t['value_wei']} | `{t['tx_hash'] or 'n/a'}` | {t.get('status_now') or t['status_when_accepted'] or '?'} |")
+    lines += ["", "## Outgoing transfers (the vault's payout ledger)", "",
+              "| scenario | id | kind | recipient | amount (wei) | state | attempts |", "|---|---|---|---|---|---|---|"]
+    for r in ctx.payout_rows:
+        if "kind" in r:
+            lines.append(f"| {r['scenario']} | {r['id']} | {r['kind']} | {r['recipient']} `{r['to']}` | {r['amount']} | {r['state']} | {r['attempts']} |")
+    lines += ["", "## Recipient balance evidence", "",
+              "| scenario | account | before | sent into vault | paid by vault | after | expected |", "|---|---|---|---|---|---|---|"]
+    for r in ctx.payout_rows:
+        if "balance_after" in r:
+            lines.append(f"| {r['scenario']} | {r['recipient']} | {r['balance_before']} | {r['sent_into_vault']} | {r['paid_by_vault']} | {r['balance_after']} | {r['expected']} |")
+    if manifest["unfinalized_transactions"]:
+        lines += ["", "## Not finalized when the manifest was written", ""] + [f"* `{h}`" for h in manifest["unfinalized_transactions"]]
+    MANIFEST_MD.write_text("\n".join(lines) + "\n")
+    return manifest
 
 
 def find_contract_address(receipt: dict) -> str:
@@ -532,6 +600,10 @@ class Ctx:
     accts: dict = field(default_factory=dict)
     contract: str = ""
     last_tx: Optional[Tx] = None
+    payout_wait: int = 900                      # seconds to wait for emitted transfers to land
+    sent_in: dict = field(default_factory=dict)             # label -> wei the account attached to its transactions
+    txs: list = field(default_factory=list)                 # manifest: every transaction
+    payout_rows: list = field(default_factory=list)         # manifest: outgoing transfers, with balance evidence
 
     # -- chain helpers ----------------------------------------------------------
     def view(self, fn: str, *args) -> Any:
@@ -547,7 +619,70 @@ class Ctx:
     def send(self, who: str, fn: str, *args, value: int = 0) -> Tx:
         tx = self.B.write(self.accts[who], self.contract, fn, list(args), value=value)
         self.last_tx = tx
+        if tx.ok is not False and value:
+            self.sent_in[who] = self.sent_in.get(who, 0) + int(value)
+        self.txs.append({"n": len(self.txs) + 1, "scenario": self.rep.scenario, "fn": fn, "from": self.accts[who].address,
+                         "who": who, "value_wei": int(value), "tx_hash": tx.tx_hash, "ok": tx.ok,
+                         "status_when_accepted": tx.status, "error": tx.error,
+                         "child_messages": _child_messages(tx.receipt)})
         return tx
+
+    # -- payout evidence --------------------------------------------------------
+    def snapshot(self, *labels: str) -> dict:
+        """Balances and money sent so far, taken before the transactions whose payouts will be checked."""
+        return {l: (self.B.balance(self.accts[l].address), self.sent_in.get(l, 0)) for l in labels}
+
+    def verify_payouts(self, name: str, cids: list, before: dict) -> None:
+        """Prove that every payment of these campaigns left the vault AND reached its recipient.
+
+        1. wait for the last transaction to be FINALIZED (emitted transfers run on finalization);
+        2. let the vault's own ledger classify them (``get_ledger``) and settle them
+           (``reconcile_payouts``): a payout is only ``settled`` when the vault's balance dropped;
+        3. compare every recipient's balance with what they sent in and were paid.
+        """
+        rep = self.rep
+        self.B.settle(self.last_tx, rep)
+        end = time.time() + self.payout_wait
+        while True:
+            led = self.view("get_ledger")
+            if led["state"] == "all_landed":
+                self.send("mallory", "reconcile_payouts", 50)
+            led = self.view("get_ledger")
+            if led["state"] in ("idle", "unknown") or time.time() >= end:
+                break
+            time.sleep(10)
+        rep.info(f"{name}: ledger", json.dumps(led))
+        rows = []
+        for cid in cids:
+            rows += list(self.view("list_payouts", cid, 0, 100))
+        by_label = {self.accts[l].address.lower(): l for l in self.accts}
+        paid: dict = {}
+        for row in rows:
+            ok = row["state"] == "settled"
+            rep.check(f"{name}: payout #{row['id']} ({row['kind']}, {int(row['amount'])} wei) left the vault and is settled", ok,
+                      f"state={row['state']} attempts={row['attempts']}: the transfer was emitted but the vault's balance never dropped")
+            label = by_label.get(str(row["to"]).lower())
+            if label and ok:
+                paid[label] = paid.get(label, 0) + int(row["amount"])
+            self.payout_rows.append({**row, "scenario": name, "recipient": label or "?"})
+        rep.check(f"{name}: the vault's own balance matches what it still owes (held)",
+                  led["balance"] != "" and int(led["held"]) == int(led["balance"]),
+                  f"held={led['held']} balance={led['balance']} state={led['state']}")
+        rep.info(f"{name}: vault balance read over RPC", str(self.B.balance(self.contract)))
+        for label, (bal0, sent0) in before.items():
+            addr = self.accts[label].address
+            want = bal0 - (self.sent_in.get(label, 0) - sent0) + paid.get(label, 0)
+            if paid.get(label, 0) > 0:
+                self.B.wait_balance(addr, lambda b: b >= want - self.unit // 5, 120)
+            now = self.B.balance(addr)
+            tolerance = self.unit // 5                                   # fees
+            rep.check(f"{name}: {label}'s balance reflects what the vault paid them",
+                      abs(now - want) <= tolerance,
+                      f"balance {now}, expected about {want} (started {bal0}, sent in {self.sent_in.get(label, 0) - sent0}, "
+                      f"paid {paid.get(label, 0)})")
+            self.payout_rows.append({"scenario": name, "recipient": label, "address": addr, "balance_before": bal0,
+                                     "sent_into_vault": self.sent_in.get(label, 0) - sent0,
+                                     "paid_by_vault": paid.get(label, 0), "balance_after": now, "expected": want})
 
     def campaign(self, cid: int) -> dict:
         return self.view("get_campaign", cid)
@@ -718,7 +853,7 @@ def s_happy_path(ctx: Ctx) -> None:
     rep, U = ctx.rep, ctx.unit
     rep.section("happy path: two milestones, bond returned")
     creator = ctx.accts["creator"].address
-    creator_before = ctx.B.balance(creator)
+    before = ctx.snapshot("creator", "bob", "carol")
     cid = ctx.active_campaign(max_strikes=2)
     raised = int(ctx.campaign(cid)["raised"])
     bond = int(ctx.campaign(cid)["bond"])
@@ -742,12 +877,7 @@ def s_happy_path(ctx: Ctx) -> None:
     rep.check("everything was released", int(c["released"]) == raised, c["released"])
     rep.check("bond left the contract", int(c["bond"]) == 0, c["bond"])
     ctx.expect_revert("nothing left to refund", "bob", "claim_refund", cid, match="nothing to refund")
-    ctx.B.settle(ctx.last_tx, rep)
-    ctx.B.wait_balance(creator, lambda b: b - creator_before >= raised // 2, 300)
-    rep.info("contract balance after payouts (0 means the transfers were executed)", str(ctx.B.balance(ctx.contract)))
-    delta = ctx.B.balance(creator) - creator_before
-    rep.soft("creator ended up with the raised money (bond returned, tolerance for fees)",
-             delta >= raised - U // 5, f"balance change {delta} wei, expected about {raised}")
+    ctx.verify_payouts("happy path", [cid], before)
     rep.info("paid out", f"raised={raised} bond={bond}")
 
 
@@ -806,7 +936,7 @@ def s_cancel_refund(ctx: Ctx) -> None:
     rep.section("cancel while funding, refunds, bond back")
     creator = ctx.accts["creator"].address
     bob = ctx.accts["bob"].address
-    bob_before = ctx.B.balance(bob)
+    before = ctx.snapshot("creator", "bob", "carol")
     cid = ctx.launch(goal_units=6, cap_units=8)
     ctx.expect_ok("bob backs 2 units", "bob", "back", cid, value=2 * U)
     ctx.expect_ok("carol backs 1 unit", "carol", "back", cid, value=U)
@@ -821,10 +951,7 @@ def s_cancel_refund(ctx: Ctx) -> None:
     ctx.expect_revert("a stranger cannot claim", "mallory", "claim_refund", cid, match="no unclaimed")
     ctx.expect_ok("carol claims", "carol", "claim_refund", cid)
     rep.check("refund pool is empty", int(ctx.campaign(cid)["refund_pool"]) == 0, ctx.campaign(cid)["refund_pool"])
-    ctx.B.settle(ctx.last_tx, rep)
-    ctx.B.wait_balance(bob, lambda b: b >= bob_before - U // 5, 300)
-    rep.info("contract balance after all claims (0 means the transfers were executed)", str(ctx.B.balance(ctx.contract)))
-    rep.soft("bob got his money back", ctx.B.balance(bob) >= bob_before - U // 5, f"{ctx.B.balance(bob) - bob_before} wei")
+    ctx.verify_payouts("cancel and refunds", [cid], before)
 
 
 def s_goal_missed(ctx: Ctx) -> None:
@@ -923,6 +1050,7 @@ def run(backend: Backend, only: Optional[list], long_mode: bool, llm_retries: in
             rep.add("FAIL", f"scenario {name} crashed", f"{type(exc).__name__}: {exc}")
             if echo:
                 traceback.print_exc()
+    rep.ctx = ctx
     return rep
 
 
@@ -963,6 +1091,9 @@ def main(argv: Optional[list] = None) -> int:
     print(rep.summary())
     rep.write_json(REPORT_PATH, {"network": args.network, "rpc": backend.rpc})
     print(f"report: {REPORT_PATH}")
+    if getattr(rep, "ctx", None) is not None:
+        write_manifest(rep.ctx, backend, args.network, backend.rpc)
+        print(f"manifest: {MANIFEST_MD}")
     return 1 if rep.counts()["FAIL"] else 0
 
 

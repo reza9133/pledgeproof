@@ -6,7 +6,7 @@ VM. It has no real chain behind it, so this file adds the missing pieces:
 * ``Chain.tx`` -- sends a transaction: attaches GEN, credits the contract's
   balance, and rolls everything back (storage, balances, emitted transfers)
   if the call reverts, the way a real chain would.
-* a transfer recorder -- ``emit_transfer`` calls are captured, so tests can
+* a transfer recorder -- external (EVM) value transfers are captured, so tests can
   assert exactly who was paid what, and a running contract balance lets
   every test check that the vault is always exactly solvent.
 * a clock -- ``Chain.set_time`` moves the transaction timestamp the
@@ -54,14 +54,32 @@ class Chain:
         self.transfers = []              # committed (address, amount) in order
         self._pending = []
         self.now = T0
+        self.hold_transfers = False      # True: emitted transfers wait until deliver() / lose()
+        self.undelivered = []            # emitted but not (yet) landed: (address, amount)
+        self.internal_messages = []      # IC->IC messages: the vault must never send any
         vm._gl_call_hook = self._hook
+        # The vault reads its own balance to reconcile payouts; answer with the simulated one.
+        for target in (contract, type(contract)):
+            try:
+                setattr(target, "_balance", (lambda _self=None: self.balance) if target is contract else (lambda _s: self.balance))
+            except Exception:
+                pass
 
     # -- plumbing ---------------------------------------------------------
 
     def _hook(self, vm, request):
-        if "PostMessage" in request:
-            data = request["PostMessage"]
+        # Payments go to wallets, so they must be *external* messages (an EVM
+        # interface -> ``EthSend``). An internal IC->IC ``PostMessage`` would
+        # be a call to another Intelligent Contract; recording one here makes
+        # the test fail, so the wrong mechanism can never come back unnoticed.
+        if "EthSend" in request:
+            data = request["EthSend"]
+            if data.get("calldata"):
+                raise AssertionError("the vault must only send plain value transfers to wallets")
             self._pending.append((str(data["address"]), int(data["value"])))
+            return {"ok": None}
+        if "PostMessage" in request:
+            self.internal_messages.append(request["PostMessage"])
             return {"ok": None}
         return None
 
@@ -92,12 +110,33 @@ class Chain:
         self.vm.value = 0
         self.balance += int(value)
         for address, amount in self._pending:
-            self.balance -= amount
-            self.received[address] = self.received.get(address, 0) + amount
-            self.transfers.append((address, amount))
+            if self.hold_transfers:
+                self.undelivered.append((address, amount))
+            else:
+                self._land(address, amount)
         self._pending = []
         assert self.balance >= 0, "the contract paid out more than it ever received"
+        assert not self.internal_messages, (
+            "wallets must be paid with an external (EVM) message, not an internal contract message"
+        )
         return result
+
+    def _land(self, address, amount):
+        self.balance -= amount
+        self.received[address] = self.received.get(address, 0) + amount
+        self.transfers.append((address, amount))
+
+    def deliver(self, count=None):
+        """Let emitted transfers land (finalization), oldest first."""
+        take = self.undelivered if count is None else self.undelivered[:count]
+        for address, amount in list(take):
+            self.undelivered.remove((address, amount))
+            self._land(address, amount)
+        assert self.balance >= 0, "the contract paid out more than it ever received"
+
+    def lose(self):
+        """Emitted transfers that never arrive."""
+        self.undelivered = []
 
     def reverts(self, sender, method: str, *args, value: int = 0, match: str = ""):
         """Assert that a transaction reverts (with ``match`` in the error) and changes nothing."""

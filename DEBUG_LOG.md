@@ -33,16 +33,25 @@ second, and a 12-mutant mutation run: no new bugs. One model mismatch turned out
 to be a wrong assumption in the model (`backer_count` is not reduced by refund
 claims), not a contract bug.
 
-## Environment finding (not a contract bug)
+## Round 4 (steward review of the first live run)
 
-GitHub's "latest" GenVM release can lack `genvm-universal.tar.xz`, which breaks
-`gltest` direct mode with a 404. `scripts/codespaces_live.sh` pre-seeds the
-cache with v0.2.16.
+| # | Severity | Finding | Change |
+|---|---|---|---|
+| 12 | High | The first Studionet report showed the vault still holding the payouts and the creator/backer balances unchanged. Those were recorded as warnings and explained as "arrives at finalization", which was never demonstrated. | The two checks are now hard failures, and they are backed by on-chain evidence (`get_ledger`, `list_payouts`) plus a transaction manifest. |
+| 13 | High | `_send` cleared pledges, refund credits, tranches and the bond *before* delivery and had no way back if a transfer never arrived. | Every payment goes on a payout ledger and stays `sent` until the contract's own balance proves it left (`reconcile_payouts`); `retry_payout` re-sends a payment that never arrived (after 3 days, only while nothing has left). |
+| 14 | Medium | `emit_transfer` on `gl.get_contract_at(to)` is used for EOAs and contracts alike; its fit for EOAs on the target network is unproven. | Fixed in round 5: that call is an internal IC->IC message. `_emit` now sends an external message through an `@gl.evm.contract_interface` stub, which is how GenLayer documents paying an EOA. |
+| 15 | Medium | The frontend said "done" at ACCEPTED. | Writes resolve at ACCEPTED, say "not final yet", and report "finalized" only at FINALIZED; the campaign page lists every payment and offers "Confirm deliveries" / "Send again". |
 
-## Not verified here
+Round 4 was written without network access and without the GenVM test runner.
 
-The live Studionet run could not be executed from the build sandbox (no network
-route to the RPC). The live script's scenario code, its receipt parsing and its
-`genlayer-py` plumbing are covered offline (`tests/test_live_script_selfcheck.py`),
-but the first real run is the first time it meets real validators and a real
-model.
+## Round 5 (remaining steward points)
+
+| # | Severity | Finding | Change |
+|---|---|---|---|
+| 16 | High | `_emit` used `gl.get_contract_at(to).emit_transfer`, an internal message to another Intelligent Contract, for wallet recipients. GenLayer pays an EOA with an external (EVM) message, which executes on finalization through the ghost contract. | `_emit` now calls `_Wallet(to).emit_transfer(value=...)` on an `@gl.evm.contract_interface` stub. The harness records external transfers (`EthSend`) and fails any test where the vault sends an internal message; with the old call restored, the ledger tests fail. |
+| 17 | Medium | The round 4 ledger tests and harness had never been executed. | Run for real in this round: all 795 direct-mode tests pass against the GenVM SDK v0.2.12, and `genvm-lint check` passes on the bundle (21 methods). |
+| 18 | Low | `retry_payout` could pay twice if the emitting transaction had not finalized after the patience window (external messages run on finalization). | Not changeable from inside the contract; documented in the README. |
+
+Still not done: a new `scripts/live_e2e.py` run on Studionet. The corrected
+mechanism, `self.balance` against real consensus, and the recipient balance
+changes remain unverified until `artifacts/MANIFEST.md` comes from that run.

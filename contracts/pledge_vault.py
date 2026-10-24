@@ -51,15 +51,25 @@ Design notes
   can always be answered.
 * Time comes from the transaction's own timestamp, so every validator
   agrees on it.
+* Outgoing payments are fire-and-forget messages: the contract cannot see
+  whether one was delivered. Every payment is therefore also written to a
+  **payout ledger** and stays there until the contract's own balance proves
+  that the money left (``reconcile_payouts``). A payment that never lands can
+  be sent again (``retry_payout``) once a patience window has passed and only
+  while nothing at all has landed, so a duplicate can never be paid out of
+  other people's money. Nothing is lost: the beneficiary's entitlement is
+  recorded in ``payouts`` even though the campaign books were already cleared.
 """
 
 from genlayer import *
 
 from dataclasses import dataclass
 
-from pledgeproof import ProofJudge, ERROR_EXPECTED
+from pledgeproof import ProofJudge, ERROR_EXPECTED, ERROR_EXTERNAL
 from pledgeproof_pure import (
     MAX_CURED_REVIEWS,
+    MAX_RECONCILE_BATCH,
+    PAYOUT_ALL_LANDED,
     MAX_FUNDING_WINDOW_SECONDS,
     MIN_FUNDING_WINDOW_SECONDS,
     REVIEW_DELAY_SECONDS,
@@ -70,10 +80,12 @@ from pledgeproof_pure import (
     decide,
     has_hidden_chars,
     is_safe_proof_url,
+    may_resend,
     min_bond,
     normalize_text,
     parse_iso_timestamp,
     parse_milestones,
+    payout_state,
     proof_token,
     refund_share,
     tranche_amounts,
@@ -92,6 +104,25 @@ _CANCELLED = "cancelled"
 _OPEN = "open"          # waiting for the creator to submit (or resubmit) proof
 _PENDING = "pending"    # proof submitted, waiting for review
 _PASSED = "passed"      # approved and paid
+
+# Outgoing payments go to ordinary wallets (EOAs). GenLayer distinguishes two
+# kinds of message: ``gl.get_contract_at(addr).emit_transfer`` is an *internal*
+# message to another Intelligent Contract, while a wallet lives on the chain
+# layer and is paid by an *external* message through the vault's ghost
+# contract. That is what an EVM contract interface produces, even though the
+# recipient is not a contract. External messages always run on finalization.
+@gl.evm.contract_interface
+class _Wallet:
+    class View:
+        pass
+
+    class Write:
+        pass
+
+
+# Payout states
+_SENT = "sent"          # transfer emitted, not yet proven to have left the contract
+_SETTLED = "settled"    # the contract's balance proved the money left
 
 
 @allow_storage
@@ -138,14 +169,36 @@ class Milestone:
     attempts: u32               # number of completed reviews
 
 
+@allow_storage
+@dataclass
+class Payout:
+    to: Address
+    amount: u256
+    campaign_id: u256
+    kind: str                   # pledge_withdrawn | refund | bond_returned | tranche | tranche_and_bond
+    state: str                  # sent | settled
+    created_at: u256
+    last_sent_at: u256
+    attempts: u32               # times the transfer was emitted
+
+
 class PledgeVault(gl.Contract):
     campaigns: TreeMap[u256, Campaign]
     milestones: TreeMap[u256, Milestone]       # key = campaign_id * 8 + index
     pledges: TreeMap[str, u256]                # key = "<campaign_id>:<backer address>"
     next_id: u256
+    payouts: TreeMap[u256, Payout]             # every outgoing payment, until the balance proves it left
+    next_payout: u256
+    payout_cursor: u256                        # every payout below this id is settled
+    held: u256                                 # received and not yet proven paid out
+    inflight_total: u256                       # sum of the payouts that are not settled
 
     def __init__(self):
         self.next_id = u256(0)
+        self.next_payout = u256(0)
+        self.payout_cursor = u256(0)
+        self.held = u256(0)
+        self.inflight_total = u256(0)
 
     # ------------------------------------------------------------------
     # Creating and funding
@@ -165,6 +218,7 @@ class PledgeVault(gl.Contract):
     ) -> u256:
         now = self._now()
         bond = int(gl.message.value)
+        self.held = u256(int(self.held) + bond)
         if has_hidden_chars(title) or has_hidden_chars(pitch):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} title and pitch must not contain control or bidirectional characters")
         title = normalize_text(title)
@@ -256,6 +310,7 @@ class PledgeVault(gl.Contract):
         if backer == campaign.creator:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} creators cannot back their own campaign")
         value = int(gl.message.value)
+        self.held = u256(int(self.held) + value)
         if value < int(campaign.min_pledge):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} the pledge is below the campaign minimum")
         if int(campaign.raised) + value > int(campaign.cap):
@@ -283,7 +338,7 @@ class PledgeVault(gl.Contract):
         self.pledges[key] = u256(0)
         campaign.raised = u256(int(campaign.raised) - pledge)
         campaign.backer_count = u32(int(campaign.backer_count) - 1)
-        self._send(backer, pledge)
+        self._send(backer, pledge, int(campaign_id), "pledge_withdrawn")
 
     @gl.public.write
     def cancel_campaign(self, campaign_id: u256) -> None:
@@ -296,7 +351,7 @@ class PledgeVault(gl.Contract):
             raise gl.vm.UserError(
                 f"{ERROR_EXPECTED} funding is over: a campaign can only be cancelled while its funding window is open"
             )
-        self._end_without_fault(campaign, _CANCELLED, "cancelled")
+        self._end_without_fault(int(campaign_id), campaign, _CANCELLED, "cancelled")
 
     @gl.public.write
     def close_funding(self, campaign_id: u256) -> None:
@@ -312,7 +367,7 @@ class PledgeVault(gl.Contract):
             campaign.status = _ACTIVE
             campaign.current_since = u256(now)
         else:
-            self._end_without_fault(campaign, _FAILED, "goal_not_met")
+            self._end_without_fault(int(campaign_id), campaign, _FAILED, "goal_not_met")
 
     # ------------------------------------------------------------------
     # Delivering and judging
@@ -432,11 +487,105 @@ class PledgeVault(gl.Contract):
         campaign.refund_pool = u256(int(campaign.refund_pool) - share)
         campaign.refund_weight = u256(int(campaign.refund_weight) - pledge)
         self.pledges[key] = u256(0)
-        self._send(backer, share)
+        self._send(backer, share, int(campaign_id), "refund")
+
+    # ------------------------------------------------------------------
+    # Payout ledger
+    # ------------------------------------------------------------------
+
+    @gl.public.write
+    def reconcile_payouts(self, max_items: u32) -> None:
+        """Mark payouts as settled once the contract's balance proves they left.
+
+        Anyone may call this. It changes nothing unless *every* payout still in
+        flight has demonstrably left the contract (see ``payout_state``); a
+        partial picture is left alone because the balance cannot say which
+        payment it was.
+        """
+        if int(self.inflight_total) == 0:
+            return
+        if payout_state(int(self.held), self._balance(), int(self.inflight_total)) != PAYOUT_ALL_LANDED:
+            return
+        limit = int(max_items)
+        limit = MAX_RECONCILE_BATCH if limit < 1 or limit > MAX_RECONCILE_BATCH else limit
+        cursor = int(self.payout_cursor)
+        end = int(self.next_payout)
+        examined = 0
+        while cursor < end and examined < limit:
+            record = self.payouts[u256(cursor)]
+            if record.state == _SENT:
+                amount = int(record.amount)
+                record.state = _SETTLED
+                self.inflight_total = u256(int(self.inflight_total) - amount)
+                self.held = u256(int(self.held) - amount)
+            cursor += 1
+            examined += 1
+        self.payout_cursor = u256(cursor)
+
+    @gl.public.write
+    def retry_payout(self, payout_id: u256) -> None:
+        """Emit a payment again when the first attempt never arrived.
+
+        Allowed only once ``PAYOUT_PATIENCE_SECONDS`` have passed since the last
+        attempt *and* while the contract's balance shows that nothing at all has
+        left it. Then the payment cannot have been delivered, and the money for
+        a second attempt is still the beneficiary's own.
+        """
+        if payout_id not in self.payouts:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} no payout with that id")
+        record = self.payouts[payout_id]
+        if record.state != _SENT:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} this payout is already settled")
+        now = self._now()
+        if not may_resend(int(self.held), self._balance(), int(record.last_sent_at), now):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} this payout cannot be re-sent yet: it is either still within its patience window "
+                "or part of it may already have been delivered (call reconcile_payouts)"
+            )
+        record.last_sent_at = u256(now)
+        record.attempts = u32(int(record.attempts) + 1)
+        self._emit(record.to, int(record.amount))
 
     # ------------------------------------------------------------------
     # Views
     # ------------------------------------------------------------------
+
+    @gl.public.view
+    def get_ledger(self) -> dict:
+        held = int(self.held)
+        inflight = int(self.inflight_total)
+        try:
+            balance = self._balance()
+            state = payout_state(held, balance, inflight)
+            balance_s = str(balance)
+        except Exception:
+            balance_s, state = "", "unknown"
+        return {
+            "held": str(held),
+            "inflight_total": str(inflight),
+            "balance": balance_s,
+            "state": state,
+            "payout_count": int(self.next_payout),
+            "payout_cursor": int(self.payout_cursor),
+        }
+
+    @gl.public.view
+    def get_payout(self, payout_id: u256) -> dict:
+        if payout_id not in self.payouts:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} no payout with that id")
+        return self._payout_view(int(payout_id))
+
+    @gl.public.view
+    def list_payouts(self, campaign_id: u256, start: u32, limit: u32) -> list:
+        """Payouts of one campaign with id >= start (at most ``limit``, never more than 100)."""
+        cap = max(1, min(int(limit), 100))
+        out = []
+        for i in range(int(start), int(self.next_payout)):
+            if int(self.payouts[u256(i)].campaign_id) == int(campaign_id):
+                out.append(self._payout_view(i))
+                if len(out) >= cap:
+                    break
+        return out
 
     @gl.public.view
     def get_campaign(self, campaign_id: u256) -> dict:
@@ -592,13 +741,15 @@ class PledgeVault(gl.Contract):
         campaign.cure_until = u256(0)
 
         payout = amount
+        kind = "tranche"
         if index + 1 == count:
             campaign.status = _COMPLETED
             payout += int(campaign.bond)
             campaign.bond = u256(0)
-        self._send(campaign.creator, payout)
+            kind = "tranche_and_bond"
+        self._send(campaign.creator, payout, cid, kind)
 
-    def _end_without_fault(self, campaign: Campaign, status: str, reason: str) -> None:
+    def _end_without_fault(self, cid: int, campaign: Campaign, status: str, reason: str) -> None:
         """Funding never started: backers get everything back, the bond returns."""
         bond = int(campaign.bond)
         campaign.status = status
@@ -606,7 +757,7 @@ class PledgeVault(gl.Contract):
         campaign.refund_pool = campaign.raised
         campaign.refund_weight = campaign.raised
         campaign.bond = u256(0)
-        self._send(campaign.creator, bond)
+        self._send(campaign.creator, bond, cid, "bond_returned")
 
     def _fail_with_fault(self, campaign: Campaign, reason: str) -> None:
         """The creator did not deliver: the bond joins the refund pool."""
@@ -617,8 +768,54 @@ class PledgeVault(gl.Contract):
         campaign.refund_weight = campaign.raised
         campaign.bond = u256(0)
 
-    def _send(self, to: Address, amount: int) -> None:
+    def _send(self, to: Address, amount: int, campaign_id: int, kind: str) -> None:
+        """Record a payment on the ledger, then emit the transfer.
+
+        The ledger entry is what keeps the beneficiary's entitlement alive: the
+        campaign books are cleared the moment the payment is requested, but the
+        entry stays ``sent`` until ``reconcile_payouts`` sees the money leave.
+        """
         amount = int(amount)
         if amount <= 0 or to == _ZERO_ADDRESS:
             return
-        gl.get_contract_at(to).emit_transfer(value=u256(amount))
+        now = self._now()
+        payout_id = int(self.next_payout)
+        self.next_payout = u256(payout_id + 1)
+        self.payouts[u256(payout_id)] = Payout(
+            to=to,
+            amount=u256(amount),
+            campaign_id=u256(int(campaign_id)),
+            kind=kind,
+            state=_SENT,
+            created_at=u256(now),
+            last_sent_at=u256(now),
+            attempts=u32(1),
+        )
+        self.inflight_total = u256(int(self.inflight_total) + amount)
+        self._emit(to, amount)
+
+    def _emit(self, to: Address, amount: int) -> None:
+        # The one place that talks to the network's transfer mechanism: an
+        # external message to a wallet, delivered by the ghost contract when
+        # the transaction that emitted it is finalized.
+        _Wallet(to).emit_transfer(value=u256(amount))
+
+    def _balance(self) -> int:
+        try:
+            return int(self.balance)
+        except Exception:
+            raise gl.vm.UserError(f"{ERROR_EXTERNAL} the contract balance could not be read")
+
+    def _payout_view(self, payout_id: int) -> dict:
+        p = self.payouts[u256(payout_id)]
+        return {
+            "id": payout_id,
+            "to": str(p.to),
+            "amount": str(int(p.amount)),
+            "campaign_id": int(p.campaign_id),
+            "kind": p.kind,
+            "state": p.state,
+            "created_at": str(int(p.created_at)),
+            "last_sent_at": str(int(p.last_sent_at)),
+            "attempts": int(p.attempts),
+        }
