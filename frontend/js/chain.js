@@ -1,33 +1,47 @@
 // Thin wrapper around genlayer-js: reads need no wallet, writes are signed by the EIP-6963 wallet.
+// The SDK is self-hosted (js/vendor/genlayer.js, rebuild with tools/build-vendor.sh), so the site has no CDN dependency.
 const C = window.PP_CONFIG;
-const SDK = "https://esm.sh/genlayer-js@1.1.8";
 let lib = null, reader = null, writer = null, prov = null;
 
 async function load() {
   if (lib) return lib;
-  const [m, c] = await Promise.all([import(SDK), import(SDK + "/chains")]);
-  lib = { createClient: m.createClient, studionet: c.studionet };
+  const m = await import("./vendor/genlayer.js");
+  // A copy of the chain that points at the RPC from config.js (the SDK mutates the chain it is given).
+  const chain = { ...m.studionet, rpcUrls: { default: { http: [C.rpc || m.studionet.rpcUrls.default.http[0]] } } };
+  lib = { createClient: m.createClient, chain };
   return lib;
 }
 
 export const ready = () => /^0x[0-9a-fA-F]{40}$/.test(C.contract || "");
+export const txUrl = (hash) => (C.explorerTx && /^0x[0-9a-fA-F]+$/.test(hash || "") ? C.explorerTx.replace("{hash}", hash) : "");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Studio RPC and the CDN can hiccup ("unknown RPC error"): retry with growing delays, and
-// fall back to the last good answer for the same call (this tab) so a page never goes blank.
-const ck = (fn, args) => "pp:" + fn + ":" + JSON.stringify(args, (_, v) => (typeof v === "bigint" ? v.toString() : v));
+
+/* ---------- reads, with a visible "stale" fallback ---------- */
+// Studio RPC can hiccup ("unknown RPC error"): retry with growing delays. If every try fails, serve the last good answer
+// for the same call from this tab, and remember that we did so (staleSince) so the page can say the data may be old.
+const ser = (v) => JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x));
+const ck = (fn, args) => "pp2:" + fn + ":" + ser(args);
+const stale = new Map(); // cache key -> when (ms) the saved answer was stored
+const emitStale = () => window.dispatchEvent(new Event("pp-stale"));
+export const staleSince = () => (stale.size ? Math.min(...stale.values()) : 0);
+
 export async function read(fn, args = []) {
-  let err;
+  let err; const key = ck(fn, args);
   for (let i = 0; i < 5; i++) {
     try {
-      const { createClient, studionet } = await load();
-      reader ||= createClient({ chain: studionet });
+      const { createClient, chain } = await load();
+      reader ||= createClient({ chain, endpoint: C.rpc });
       const v = await reader.readContract({ address: C.contract, functionName: fn, args });
-      try { sessionStorage.setItem(ck(fn, args), JSON.stringify(v)); } catch {}
+      try { sessionStorage.setItem(key, ser({ t: Date.now(), v })); } catch {}
+      if (stale.delete(key)) emitStale();
       return v;
-    } catch (e) { err = e; if (contractError(e)) throw e; await sleep(400 * (i + 1) ** 2); }
+    } catch (e) { err = e; if (contractError(e)) throw e; if (i < 4) await sleep(400 * (i + 1) ** 2); }
   }
-  try { const old = sessionStorage.getItem(ck(fn, args)); if (old) return JSON.parse(old); } catch {}
+  try {
+    const old = JSON.parse(sessionStorage.getItem(key) || "null");
+    if (old && typeof old.t === "number" && "v" in old) { stale.set(key, old.t); emitStale(); return old.v; }
+  } catch {}
   throw err;
 }
 
@@ -40,11 +54,49 @@ export async function pool(items, fn, n = 2) {
   return { values: out.filter((v) => v !== undefined), failed };
 }
 
+/* ---------- clock ---------- */
+// The contract judges deadlines with the transaction's timestamp, not with the visitor's clock. A visitor's device clock can
+// be wrong, so we measure it against the clock of the web server that served this page (same-origin response: its Date
+// header is always readable). If that is not possible (file://, offline) the clock stays "unverified" and the UI is lenient.
+export const clock = { offset: 0, verified: false, source: "device", skew: 0 }; // skew > 0: the device clock is behind
+export const now = () => Math.floor(Date.now() / 1000) + clock.offset;
+let clockP = null;
+export function syncClock() {
+  return (clockP ||= (async () => {
+    const ctl = typeof AbortController === "function" ? new AbortController() : null, to = setTimeout(() => ctl?.abort(), 4000);
+    try { // 1) the site's own server
+      const t0 = Date.now();
+      const res = await fetch("assets/logo.svg?_=" + t0 + Math.random().toString(36).slice(2, 6), { method: "HEAD", cache: "no-store", signal: ctl?.signal });
+      const t1 = Date.now(), d = Date.parse(res.headers.get("date") || ""), age = Number(res.headers.get("age") || 0);
+      if (Number.isFinite(d)) {
+        const skew = Math.round((d + 500 + (Number.isFinite(age) ? age * 1000 : 0) - (t0 + t1) / 2) / 1000); // Date has 1 s resolution
+        clock.skew = skew; clock.verified = true; clock.source = "site";
+        if (Math.abs(skew) > 30) clock.offset = skew; // ignore small noise
+        return clock;
+      }
+    } catch {} finally { clearTimeout(to); }
+    try { // 2) fallback: the newest block can only be older than "now", so a device clock that is behind it is surely wrong
+      const r = await fetch(C.rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getBlockByNumber", params: ["latest", false] }) });
+      let ts = Number((await r.json())?.result?.timestamp); if (ts > 1e11) ts = Math.floor(ts / 1000);
+      const local = Math.floor(Date.now() / 1000);
+      if (Number.isFinite(ts) && ts > 1.6e9 && ts < 4e9 && ts > local + 60) { clock.skew = clock.offset = ts - local; clock.source = "block"; }
+    } catch {}
+    return clock;
+  })());
+}
+
+/* ---------- wallet ---------- */
+const hexChain = () => "0x" + C.chainId.toString(16);
+const chainOf = (p) => p.request({ method: "eth_chainId" }).then((x) => String(x).toLowerCase(), () => "");
+
+// Make the wallet use the GenLayer network. A refusal (code 4001) is passed on instead of opening a second prompt.
 export async function ensureNetwork(provider) {
-  const chainId = "0x" + C.chainId.toString(16);
+  const chainId = hexChain();
+  if ((await chainOf(provider)) === chainId) return;
   try {
     await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
-  } catch {
+  } catch (e) {
+    if (e?.code === 4001) throw e;
     await provider.request({
       method: "wallet_addEthereumChain",
       params: [{
@@ -52,16 +104,18 @@ export async function ensureNetwork(provider) {
         nativeCurrency: { name: "GEN Token", symbol: "GEN", decimals: 18 }, blockExplorerUrls: [C.explorer],
       }],
     });
-    try { await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] }); } catch {}
+    try { await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] }); } catch (e2) { if (e2?.code === 4001) throw e2; }
   }
+  const after = await chainOf(provider);
+  if (after && after !== chainId) throw new Error("Switch your wallet to the GenLayer Studio network (chain id " + C.chainId + ") and try again.");
 }
 
 export function dropWallet() { writer = null; prov = null; }
 
 export async function useWallet(account, provider) {
-  const { createClient, studionet } = await load();
+  const { createClient, chain } = await load();
   prov = provider;
-  writer = createClient({ chain: studionet, account, provider });
+  writer = createClient({ chain, endpoint: C.rpc, account, provider });
 }
 
 const REVERT = /\[(EXPECTED|EXTERNAL|TRANSIENT|LLM_ERROR)\][^"'\\\n]*/;
@@ -96,11 +150,11 @@ export function outcome(r) {
 
 export async function write(fn, args = [], value = 0n, onHash) {
   if (!writer) throw new Error("Connect a wallet first.");
-  try { await ensureNetwork(prov); } catch {}
+  await ensureNetwork(prov); // throws a clear error instead of sending the transaction on the wrong network
   const hash = await writer.writeContract({ address: C.contract, functionName: fn, args, value });
   onHash?.(hash);
   const receipt = await writer.waitForTransactionReceipt({ hash, status: "ACCEPTED", interval: 3000, retries: 400 });
   const o = outcome(receipt);
-  if (o.ok === false) throw new Error(o.error);
+  if (o.ok === false) { const e = new Error(o.error); e.hash = hash; throw e; }
   return { hash, receipt, unconfirmed: o.ok === null };
 }

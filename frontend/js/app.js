@@ -9,13 +9,35 @@ const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const N = (x) => { try { return BigInt(x ?? 0); } catch { return 0n; } };
 const E18 = 10n ** 18n;
 const gen = (w, d = 4) => { w = N(w); const f = (w % E18).toString().padStart(18, "0").slice(0, d).replace(/0+$/, ""); return (w / E18).toLocaleString() + (f ? "." + f : ""); };
-const parseGen = (t) => { const m = String(t).trim().match(/^(\d+)(?:\.(\d{1,18}))?$/); return m ? BigInt(m[1]) * E18 + BigInt((m[2] || "").padEnd(18, "0")) : null; };
+/* Persian/Arabic digits and separators are accepted: "۱٫۵", "1,5" and "1.5" all mean one and a half; "1,000" means one thousand. */
+const normNum = (t) => {
+  let x = String(t ?? "").trim().replace(/[۰-۹]/g, (d) => d.charCodeAt(0) - 0x6f0).replace(/[٠-٩]/g, (d) => d.charCodeAt(0) - 0x660).replace(/[\s_٬]/g, "").replace(/٫/g, ".");
+  if (!x.includes(".") && x.includes(",")) x = /^[1-9]\d{0,2}(,\d{3})+$/.test(x) ? x.replace(/,/g, "") : x.replace(/^(\d+),(\d+)$/, "$1.$2");
+  return x;
+};
+const parseGen = (t) => { const m = normNum(t).match(/^(\d*)(?:\.(\d{1,18}))?$/); return m && (m[1] || m[2]) ? BigInt(m[1] || "0") * E18 + BigInt((m[2] || "").padEnd(18, "0")) : null; };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const short = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "");
 const when = (ts) => new Date(Number(ts) * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-const nowSec = () => Math.floor(Date.now() / 1000);
+/* chain.now() is the device clock corrected against the web server's clock (see chain.js), because the contract uses the transaction's time */
+const nowSec = () => chain.now();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const httpsOnly = (u) => (/^https:\/\//i.test(u) ? u : "#");
 const same = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
+
+/* transaction hash: short link to the explorer (if config.js has explorerTx) plus a copy button */
+function txBits(hash) {
+  const f = document.createDocumentFragment(), url = chain.txUrl(hash);
+  f.append(" · tx ");
+  const el = document.createElement(url ? "a" : "code");
+  if (url) { el.href = url; el.target = "_blank"; el.rel = "noopener noreferrer"; }
+  el.textContent = short(hash) + (url ? " ↗" : ""); el.title = hash;
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "btn ghost mini"; b.textContent = "Copy hash";
+  b.onclick = () => navigator.clipboard?.writeText(hash).then(() => (b.textContent = "Copied"), () => (b.textContent = "Copy failed"));
+  f.append(el, " ", b); return f;
+}
+const say = (el, msg, bad, hash) => { el.hidden = !msg; el.textContent = msg || ""; el.classList.toggle("bad", !!bad); if (msg && hash) el.append(txBits(hash)); };
 
 /* ---------- theme: light / dim / dark ---------- */
 const setTheme = (t) => {
@@ -36,8 +58,27 @@ document.body.insertAdjacentHTML("afterbegin", `<header><div class="wrap">
 <dialog id="wd"><div id="acct" hidden><h3>Wallet connected</h3><p><code id="aaddr"></code></p><div class="row"><button class="btn ghost" id="acopy">Copy address</button><button class="btn ghost" id="aswitch">Switch wallet</button><button class="btn" id="adisc">Disconnect</button></div></div><div id="pick"><h3>Choose a wallet</h3><div id="wl"></div><p class="note" id="wn">No wallet detected. Install a browser wallet and reload.</p></div><button class="btn ghost" style="margin-top:14px" onclick="this.closest('dialog').close()">Close</button></dialog>`);
 document.body.insertAdjacentHTML("beforeend", `<footer><div class="wrap"><span class="built"><span>Built on</span><img class="gl" src="assets/genlayer-wordmark.svg" alt="GenLayer"></span>
 <span class="social">${chain.ready() ? `<a href="${C.explorer}/address/${C.contract}" target="_blank" rel="noopener">Contract ${short(C.contract)}</a>` : ""}<a href="${C.github}" target="_blank" rel="noopener">GitHub</a><a href="${C.twitter}" target="_blank" rel="noopener">@amirhp771 on X</a></span></div></footer>`);
+document.querySelector("header").insertAdjacentHTML("afterend", `<div class="banner" id="bstale" role="status" hidden><div class="wrap"><span></span><button class="btn ghost mini" type="button">Retry</button></div></div><div class="banner" id="bclock" role="status" hidden><div class="wrap"><span></span></div></div>`);
 document.querySelectorAll(".themes button").forEach((b) => (b.onclick = () => setTheme(b.dataset.t)));
 setTheme(document.documentElement.dataset.theme);
+/* data served from the saved copy (network not answering) is labelled as possibly old */
+addEventListener("pp-stale", () => {
+  const at = chain.staleSince(), el = $("#bstale");
+  el.hidden = !at;
+  if (at) $("span", el).textContent = `Showing saved data from ${new Date(at).toLocaleTimeString([], { timeStyle: "short" })}. The network is not answering right now, so what you see may be out of date.`;
+});
+$("#bstale button").onclick = () => (window.PP.refresh ? window.PP.refresh() : location.reload());
+/* pages that compare times: measure the device clock once; show a note when it is far off */
+const clockReady = page === "campaign" || page === "launch"
+  ? Promise.race([chain.syncClock(), sleep(3000)]).then(() => {
+      const k = chain.clock, m = Math.round(Math.abs(k.skew) / 60), el = $("#bclock");
+      if (m < 2) return;
+      el.hidden = false;
+      $("span", el).textContent = k.verified
+        ? `Your device clock is about ${m} min ${k.skew > 0 ? "behind" : "ahead of"} the web server's clock. Deadlines and buttons on this page use the corrected time; please fix your system time.`
+        : `Your device clock looks at least ${m} min behind the network. Deadlines and buttons use a corrected time, but please check your system time.`;
+    })
+  : Promise.resolve();
 
 /* ---------- EIP-6963 wallet discovery ---------- */
 const wallets = new Map();
@@ -63,7 +104,7 @@ async function connect(w, silent = false) {
   try {
     const [acc] = await w.provider.request({ method: silent ? "eth_accounts" : "eth_requestAccounts" });
     if (!acc) { safe(() => localStorage.removeItem(KEY)); return; }
-    if (!silent) await chain.ensureNetwork(w.provider);
+    if (!silent) { try { await chain.ensureNetwork(w.provider); } catch {} } /* a declined switch does not block connecting; sending a transaction re-checks the network */
     await chain.useWallet(acc, w.provider);
     safe(() => localStorage.setItem(KEY, w.info.rdns));
     PP.provider = w.provider; PP.account = acc; label(); $("#wd").close();
@@ -98,9 +139,11 @@ $("#aswitch").onclick = () => showWd(true);
 $("#acopy").onclick = () => navigator.clipboard?.writeText(PP.account).then(() => ($("#acopy").textContent = "Copied"), () => {});
 $("#wd").addEventListener("close", () => ($("#acopy").textContent = "Copy address"));
 
-/* ---------- 3D vault ring (three.js) ---------- */
+/* ---------- 3D vault ring (three.js, self-hosted, purely decorative) ---------- */
+/* Loaded only when it can be seen; if the file, WebGL or the GPU is missing the page works the same without it. */
+const loadScript = (src) => new Promise((ok, no) => { const el = document.createElement("script"); el.src = src; el.onload = ok; el.onerror = () => no(new Error("could not load " + src)); setTimeout(() => no(new Error("timed out: " + src)), 10000); document.head.append(el); });
 const stage = $("#stage");
-if (stage && window.THREE && !reduced) {
+function startStage() {
   const T = THREE, r = new T.WebGLRenderer({ canvas: stage, alpha: true, antialias: true });
   const sc = new T.Scene(), cam = new T.PerspectiveCamera(45, 1, .1, 100); cam.position.z = 9;
   const root = new T.Group(); sc.add(root);
@@ -125,12 +168,22 @@ if (stage && window.THREE && !reduced) {
   const size = () => { const w = stage.clientWidth, h = stage.clientHeight; r.setSize(w, h, false); r.setPixelRatio(Math.min(devicePixelRatio, 2)); cam.aspect = w / h; cam.updateProjectionMatrix(); root.position.x = w > 900 ? 3 : 0; };
   size(); addEventListener("resize", size);
   let mx = 0, my = 0; addEventListener("pointermove", (e) => { mx = e.clientX / innerWidth - .5; my = e.clientY / innerHeight - .5; });
-  const tick = (t) => {
+  let on = true, raf = 0;
+  const loop = (t) => {
+    raf = 0; if (!on || document.hidden) return;
     root.rotation.y += (mx * .8 - root.rotation.y) * .04; root.rotation.x += (my * .6 + .3 - root.rotation.x) * .04;
     root.children.slice(0, 3).forEach((m, i) => (m.rotation.z += .002 * (i + 1)));
     core.rotation.y = Math.sin(t * .0007) * .9; core.position.y = Math.sin(t * .0011) * .12; dust.rotation.y = t * .00005; mats[1].emissiveIntensity = .15 + .12 * Math.sin(t * .002);
-    r.render(sc, cam); requestAnimationFrame(tick);
-  }; requestAnimationFrame(tick);
+    r.render(sc, cam); raf = requestAnimationFrame(loop);
+  };
+  const kick = () => { if (!raf && on && !document.hidden) raf = requestAnimationFrame(loop); };
+  if ("IntersectionObserver" in window) new IntersectionObserver(([e]) => { on = e.isIntersecting; kick(); }).observe(stage);
+  document.addEventListener("visibilitychange", kick); kick();
+}
+if (stage && !reduced) {
+  (async () => {
+    try { if (!window.THREE) await loadScript("js/vendor/three.min.js"); startStage(); } catch { stage.remove(); }
+  })();
 }
 /* card tilt (delegated, so cards rendered later work too) */
 if (!reduced) {
@@ -184,7 +237,7 @@ if (list) {
       if (r.failed) list.insertAdjacentHTML("beforeend", `<p class="note full">${r.failed} campaign(s) could not be loaded. <button class="btn ghost" id="retry" style="padding:4px 14px">Retry</button></p>`), ($("#retry").onclick = loadList);
     } catch (e) { failRead(list, e, loadList); }
   };
-  loadList();
+  PP.refresh = loadList; loadList();
 }
 
 /* ---------- campaign detail ---------- */
@@ -192,30 +245,42 @@ const detail = $("#detail");
 if (detail) {
   const rawId = new URLSearchParams(location.search).get("id"), id = /^\d+$/.test(rawId ?? "") ? Number(rawId) : -1;
   const tx = $("#tx");
-  const setTx = (msg, bad) => { tx.hidden = !msg; tx.textContent = msg || ""; tx.classList.toggle("bad", !!bad); };
-  const errText = (e) => chain.contractError(e) || (e?.code === 4001 || /user (rejected|denied)/i.test(e?.shortMessage || e?.message || "") ? "You rejected the request in your wallet." : e?.shortMessage || e?.message || String(e));
+  const setTx = (msg, bad, hash) => say(tx, msg, bad, hash);
+  const TIMED = /window|overdue|delay|deadline|still open|closed|elapsed/i;
+  const errText = (e) => {
+    const c = chain.contractError(e);
+    if (c) return c + (TIMED.test(c) && !chain.clock.verified ? " (Time rules are judged by the network clock; check that your device clock is right.)" : "");
+    return e?.code === 4001 || /user (rejected|denied)/i.test(e?.shortMessage || e?.message || "") ? "You rejected the request in your wallet." : e?.shortMessage || e?.message || String(e);
+  };
   const effDue = (c, m) => Math.max(Number(m.due), Number(c.current_since) + 3 * 86400, Number(c.cure_until));
 
   async function run(name, fn, slow) {
     document.querySelectorAll("#detail button").forEach((b) => (b.disabled = true));
+    let hash = "";
     setTx(name + ": confirm in your wallet…");
     try {
-      await fn((h) => setTx(name + ": submitted, waiting for validators…" + (slow ? " (this can take a few minutes)" : "")));
-      setTx(name + ": done.");
-    } catch (e) { setTx(name + " failed: " + errText(e), true); }
+      const r = await fn((h) => { hash = h; setTx(name + ": submitted, waiting for validators…" + (slow ? " (this can take a few minutes)" : ""), false, h); });
+      setTx(name + ": done.", false, hash || r?.hash);
+    } catch (e) { setTx(name + " failed: " + errText(e), true, hash || e?.hash); }
     await render(true);
   }
 
+  let rseq = 0; /* overlapping renders (wallet events, finished transactions): only the newest one may draw */
   async function render(keepTx) {
     if (!chain.ready()) return notReady(detail);
     if (!Number.isInteger(id) || id < 0) { detail.innerHTML = `<p class="note">No campaign selected. <a href="campaigns.html">Browse campaigns</a>.</p>`; return; }
+    const rid = ++rseq;
     if (!keepTx) setTx("");
+    await clockReady;
     let c, pos = { pledged: "0", refundable_now: "0" }, token = "";
-    try { c = await getCampaign(id); } catch (e) { return failRead(detail, e); }
-    const me = PP.account, isCreator = same(me, c.creator), t = nowSec(), ms = c.milestones;
+    try { c = await getCampaign(id); } catch (e) { if (rid === rseq) failRead(detail, e, () => render(true)); return; }
+    const me = PP.account, isCreator = same(me, c.creator), ms = c.milestones;
+    if (rid !== rseq) return;
     if (me) { try { pos = await chain.read("get_position", [BigInt(id), me]); } catch {} }
     const cur = ms[c.next_milestone], pledged = N(pos.pledged);
     if (c.status === "active" && isCreator && cur) { try { token = await chain.read("get_proof_token", [BigInt(id), c.next_milestone]); } catch {} }
+    if (rid !== rseq) return;
+    const t = nowSec();
 
     const goal = N(c.goal), raised = N(c.raised), pct = goal > 0n ? Math.min(100, Number((raised * 100n) / goal)) : 0;
     const msHtml = ms.map((m, i) => `<li class="ms ${m.state}"><div class="row" style="justify-content:space-between"><b>Milestone ${i + 1} · ${m.bps / 100}%</b><span class="pill ${m.state === "passed" ? "completed" : m.state === "pending" ? "active" : ""}">${esc(m.state)}</span></div>
@@ -234,12 +299,14 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
         if (!open || capped) acts.push(`<button class="btn" id="close">Close funding</button>`);
       }
       if (c.status === "active" && cur) {
-        if (isCreator && t < effDue(c, cur)) acts.push(`<div class="note">Put this proof token on your public proof page, then ${cur.state === "pending" ? "replace" : "submit"} the page URL:<br><code id="tok">${esc(token)}</code> <button class="btn ghost" id="copy" style="padding:4px 12px">Copy</button></div>
+        if (isCreator && t < effDue(c, cur)) acts.push(`<div class="note">Put this proof token on your public proof page, then ${cur.state === "pending" ? "replace" : "submit"} the page URL:<br>${token ? `<code id="tok">${esc(token)}</code> <button class="btn ghost" id="copy" style="padding:4px 12px">Copy</button>` : `<code>could not load the token, press Retry above or reload the page</code>`}</div>
 <div class="row"><input id="url" placeholder="https://…" style="min-width:300px"><button class="btn" id="submit">${cur.state === "pending" ? "Replace proof URL" : "Submit proof"}</button></div>${cur.state === "pending" ? `<small>Replacing the URL restarts the one-hour wait for other people's reviews.</small>` : ""}`);
         else if (isCreator) acts.push(`<p class="note">The deadline for this milestone has passed, so a proof can no longer be submitted.</p>`);
         if (cur.state === "pending") {
-          const wait = Number(cur.submitted_at) + 3600 - t;
-          acts.push(`<button class="btn" id="review" ${!isCreator && wait > 0 ? "disabled" : ""}>Run validator review</button>${!isCreator && wait > 0 ? `<small>Others can trigger the review in ${Math.ceil(wait / 60)} min.</small>` : ""}`);
+          const wait = Number(cur.submitted_at) + 3600 - t, early = !isCreator && wait > 0;
+          /* the button is locked only when the clock was checked against a server; otherwise the contract decides */
+          const hard = early && chain.clock.verified;
+          acts.push(`<button class="btn" id="review" ${hard ? "disabled" : ""}>Run validator review</button>${early ? `<small>${hard ? `Others can trigger the review in ${Math.ceil(wait / 60)} min.` : `By your device clock, others must wait about ${Math.ceil(wait / 60)} more min. Your clock could not be checked, so you can still try and the contract will decide.`}</small>` : ""}`);
         }
         const due = effDue(c, cur), grace = cur.state === "pending" ? Number(cur.submitted_at) + 3 * 86400 : 0;
         if (t >= due && t >= grace) acts.push(`<button class="btn ghost" id="default">Declare default (milestone overdue)</button>`);
@@ -268,7 +335,7 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
     on("#withdraw", () => run("Withdraw", (h) => chain.write("withdraw_pledge", [BigInt(id)], 0n, h)));
     on("#cancel", () => run("Cancel", (h) => chain.write("cancel_campaign", [BigInt(id)], 0n, h)));
     on("#close", () => run("Close funding", (h) => chain.write("close_funding", [BigInt(id)], 0n, h)));
-    on("#copy", () => navigator.clipboard?.writeText(token).then(() => setTx("Token copied.")));
+    on("#copy", () => navigator.clipboard?.writeText(token).then(() => setTx("Token copied."), () => setTx("Could not copy automatically: select the token and copy it by hand.", true)));
     on("#submit", () => {
       const u = $("#url").value.trim();
       if (!/^https:\/\//i.test(u)) return setTx("The proof page must be a public https:// URL.", true);
@@ -279,6 +346,7 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
     on("#refund", () => run("Refund", (h) => chain.write("claim_refund", [BigInt(id)], 0n, h)));
   }
   addEventListener("pp-connected", () => render());
+  PP.refresh = () => render(true);
   render();
 }
 
@@ -286,22 +354,28 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
 const f = $("#launch");
 if (f) {
   const SPLIT = [3000, 3000, 4000], DAY = 86400;
+  /* same text rules as the contract: invisible direction/control marks are refused, invisible joiners are dropped, whitespace is collapsed, length counts characters */
+  const HIDDEN = /[\u0000-\u0008\u000E-\u001B\u007F\u0080-\u0084\u0086-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/;
+  const norm = (x) => String(x ?? "").replace(/[\u200b\u200c\u200d\u2060\ufeff]/g, "").split(/\s+/).filter(Boolean).join(" ");
+  const len = (x) => [...x].length;
   const build = () => {
     const d = Object.fromEntries(new FormData(f)), now = nowSec();
-    const goal = parseGen(d.goal), cap = parseGen(d.cap), minp = parseGen(d.minp), days = Number(d.days);
-    const title = (d.title || "").trim(), pitch = (d.pitch || "").trim();
+    const goal = parseGen(d.goal), cap = parseGen(d.cap), minp = parseGen(d.minp), days = Number(normNum(d.days));
+    const raw = [d.title, d.pitch, d.m1, d.m2, d.m3].map((x) => String(x ?? ""));
+    const title = norm(d.title), pitch = norm(d.pitch);
     const deadline = now + Math.round(days * DAY);
-    const ms = [1, 2, 3].map((n, i) => ({ description: (d["m" + n] || "").trim(), bps: SPLIT[i], due: deadline + 30 * (i + 1) * DAY }));
+    const ms = [1, 2, 3].map((n, i) => ({ description: norm(d["m" + n]), bps: SPLIT[i], due: deadline + 30 * (i + 1) * DAY }));
     let err = "";
-    if (title.length < 3 || title.length > 80) err = "Title must be 3-80 characters.";
-    else if (pitch.length < 10 || pitch.length > 1000) err = "Pitch must be 10-1000 characters.";
+    if (raw.some((x) => HIDDEN.test(x))) err = "Text cannot contain control or text-direction characters (often invisible marks copied from a document). Retype it or paste as plain text.";
+    else if (len(title) < 3 || len(title) > 80) err = "Title must be 3-80 characters.";
+    else if (len(pitch) < 10 || len(pitch) > 1000) err = "Pitch must be 10-1000 characters.";
     else if (!goal || goal <= 0n) err = "Enter a goal in GEN.";
     else if (!cap || cap < goal) err = "The cap must be at least the goal.";
-    else if (!minp || minp < 1n || minp > goal) err = "Minimum pledge must be between 0 and the goal.";
+    else if (!minp || minp < 1n || minp > goal) err = "Minimum pledge must be more than 0 and at most the goal.";
     else if (!(days >= 1 && days <= 89)) err = "Funding window must be 1 to 89 days.";
-    else if (ms.some((m) => m.description.length < 12 || m.description.length > 500)) err = "Each milestone needs 12-500 characters.";
+    else if (ms.some((m) => len(m.description) < 12 || len(m.description) > 500)) err = "Each milestone needs 12-500 characters.";
     const bond = goal ? (goal * 500n + 9999n) / 10000n : 0n;
-    return { err, bond, ms, args: err ? null : [title, pitch, goal, cap, minp, BigInt(deadline), BigInt(d.strikes), JSON.stringify(ms)] };
+    return { err, bond, ms, title, args: err ? null : [title, pitch, goal, cap, minp, BigInt(deadline), BigInt(d.strikes), JSON.stringify(ms)] };
   };
   const status = $("#launchmsg");
   const upd = () => {
@@ -313,16 +387,27 @@ if (f) {
   };
   f.oninput = upd; addEventListener("pp-connected", upd); upd();
   $("#go").onclick = async () => {
-    const b = build(), say = (m, bad) => { status.hidden = false; status.textContent = m; status.classList.toggle("bad", !!bad); };
-    if (b.err) return say(b.err, true);
-    $("#go").disabled = true; say("Confirm the transaction in your wallet (it locks the bond)…");
+    const msg = (m, bad, h) => say(status, m, bad, h);
+    await clockReady; /* deadlines are computed from the corrected clock */
+    const b = build();
+    if (b.err) return msg(b.err, true);
+    $("#go").disabled = true; msg("Confirm the transaction in your wallet (it locks the bond)…");
+    let hash = "";
     try {
-      await chain.write("launch_campaign", b.args, b.bond, () => say("Submitted. Waiting for validators…"));
-      const n = Number(N(await chain.read("campaign_count")));
-      let target = null;
-      for (let i = n - 1; i >= Math.max(0, n - 5); i--) { const c = await getCampaign(i); if (same(c.creator, PP.account) && c.title === b.args[0]) { target = i; break; } }
-      say("Campaign launched."); setTimeout(() => (location.href = target === null ? "campaigns.html" : "campaign.html?id=" + target), 800);
-    } catch (e) { say("Launch failed: " + (chain.contractError(e) || e?.shortMessage || e?.message || e), true); upd(); }
+      let before = null; try { before = Number(N(await chain.read("campaign_count"))); } catch {}
+      const r = await chain.write("launch_campaign", b.args, b.bond, (h) => { hash = h; msg("Submitted. Waiting for validators…", false, h); });
+      hash ||= r.hash;
+      /* find the new campaign: the newest one by this wallet since the count we saw before sending */
+      const n = Number(N(await chain.read("campaign_count"))); let target = null;
+      for (let i = n - 1; i >= Math.max(0, before ?? n - 5); i--) {
+        const c = await getCampaign(i);
+        if (same(c.creator, PP.account)) { if (c.title === b.title) { target = i; break; } if (target === null) target = i; }
+      }
+      const href = target === null ? "campaigns.html" : "campaign.html?id=" + target;
+      msg("Campaign launched.", false, hash);
+      const open = document.createElement("a"); open.href = href; open.textContent = " Open it now →"; status.append(open);
+      setTimeout(() => (location.href = href), 4000);
+    } catch (e) { msg("Launch failed: " + (chain.contractError(e) || e?.shortMessage || e?.message || e), true, hash || e?.hash); upd(); }
   };
 }
 
@@ -367,5 +452,5 @@ if (mine) {
 <h3 style="margin-top:34px">Launched by me</h3><div class="grid">${made.length ? made.map(card).join("") : `<p class="note">You have not launched a campaign. <a href="launch.html">Launch one</a>.</p>`}</div>`;
     } catch (e) { if (run === seq) failRead(mine, e, load); }
   };
-  addEventListener("pp-connected", load); load();
+  PP.refresh = load; addEventListener("pp-connected", load); load();
 }

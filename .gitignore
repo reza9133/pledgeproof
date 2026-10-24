@@ -6,3 +6,5 @@ artifacts/
 .venv/
 .venv-live/
 .live_accounts.json
+
+frontend/tools/.build/

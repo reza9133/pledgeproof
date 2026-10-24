@@ -1,3 +1,8 @@
+/* Fonts are self-hosted (SIL Open Font License, from the Fontsource packages), so the site needs no font CDN. */
+@font-face{font-family:"Bricolage Grotesque";font-style:normal;font-weight:500;font-display:swap;src:url(../assets/fonts/bricolage-grotesque-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Bricolage Grotesque";font-style:normal;font-weight:800;font-display:swap;src:url(../assets/fonts/bricolage-grotesque-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"Instrument Sans";font-style:normal;font-weight:400;font-display:swap;src:url(../assets/fonts/instrument-sans-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Instrument Sans";font-style:normal;font-weight:600;font-display:swap;src:url(../assets/fonts/instrument-sans-latin-600-normal.woff2) format("woff2")}
 :root{--r:14px;--f1:"Bricolage Grotesque",system-ui,sans-serif;--f2:"Instrument Sans",system-ui,sans-serif;--ok:#2fbf9b;--brass:#d9a441}
 [data-theme=light]{--bg:#eef2ef;--bg2:#e3eae6;--card:#fbfdfc;--ink:#10201c;--mute:#52665f;--line:#c7d3cd;--acc:#0f8f72;--glow:#0f8f7222}
 [data-theme=dim]{--bg:#1e2a30;--bg2:#17222a;--card:#27363e;--ink:#e6eeea;--mute:#9db0a9;--line:#3a4c55;--acc:#3fd0a8;--glow:#3fd0a82e}
@@ -46,7 +51,7 @@ dialog::backdrop{background:#0008;backdrop-filter:blur(4px)}
 .wal{display:flex;gap:12px;align-items:center;width:100%;margin-top:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;color:var(--ink);font:inherit;cursor:pointer}.wal:hover{border-color:var(--acc)}.wal img{width:30px;height:30px;border-radius:8px}
 footer{border-top:1px solid var(--line);padding:36px 0;color:var(--mute)}footer .wrap{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between;align-items:center}
 @media(max-width:760px){nav{display:none}.themes{margin-left:auto}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important;scroll-behavior:auto}}
 button.btn.ghost[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
 a.card{color:inherit}
 .bar.big{height:12px}.bar.big i{border-radius:9px;transition:width .6s}
@@ -81,3 +86,8 @@ details{border:1px solid var(--line);border-radius:12px;background:var(--card);p
 @media(max-width:760px){.menu{display:flex}header .wrap{gap:8px}#wbtn{padding:8px 12px;font-size:.85rem}.themes button{padding:4px 7px}.brand{font-size:1rem}
 nav.open{display:grid;position:absolute;top:64px;left:0;right:0;margin:0;padding:10px 22px 16px;background:var(--bg);border-bottom:1px solid var(--line)}}
 @media(max-width:900px){.hero #stage{opacity:.45}}
+
+/* ---- v3: notices, small buttons ---- */
+.banner{background:var(--bg2);border-bottom:1px solid var(--brass);color:var(--ink);font-size:.9rem}.banner .wrap{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding-top:9px;padding-bottom:9px}
+.btn.mini{padding:3px 12px;font-size:.8rem}
+.tx a{color:var(--acc)}

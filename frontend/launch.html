@@ -1,10 +1,8 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>try{var t=localStorage.getItem("pp-theme");document.documentElement.dataset.theme=t||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <title>Launch a campaign · PledgeProof</title><meta name="description" content="Milestone crowdfunding where GenLayer consensus releases the money.">
-<link rel="icon" href="assets/logo.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css"></head><body data-page="launch">
+<link rel="icon" href="assets/logo.svg"><link rel="stylesheet" href="css/style.css"></head><body data-page="launch">
 <main><section><div class="wrap"><h2>Launch a campaign</h2>
-<p>Describe the goal and three milestones. Validators judge each milestone against the text you write here, so be concrete.</p><br>
+<p>Describe the goal and three milestones. Validators judge each milestone against the text you write here, so be concrete. Text is stored as plain text: line breaks become spaces and invisible joiners (such as the Persian half-space) are removed.</p><br>
 <form id="launch" class="form" onsubmit="return false">
 <label class="full">Title<input name="title" maxlength="80" placeholder="Open Telescope Kit"></label>
 <label class="full">Pitch<textarea name="pitch" rows="3" maxlength="1000"></textarea></label>
@@ -17,5 +15,5 @@
 <label class="full">Milestone 2 (30%)<textarea name="m2" rows="2"></textarea></label>
 <label class="full">Milestone 3 (40%)<textarea name="m3" rows="2"></textarea></label>
 <div class="full note">Creator bond to lock: <b id="bond">5</b> GEN (5% of goal). Returned when the last milestone is approved. Milestones are due 30, 60 and 90 days after the funding deadline you pick above.</div>
-<pre class="full" id="json"></pre><button class="btn full" id="go" type="button" disabled>Launch campaign</button><p class="full note tx" id="launchmsg" hidden></p></form></div></section></main>
+<pre class="full" id="json"></pre><button class="btn full" id="go" type="button" disabled>Launch campaign</button><p class="full note tx" id="launchmsg" role="status" hidden></p></form></div></section></main>
 <script src="js/config.js"></script><script type="module" src="js/app.js"></script></body></html>
