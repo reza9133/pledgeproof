@@ -170,7 +170,9 @@ def test_creator_can_still_cancel_while_the_window_is_open_even_with_the_goal_me
     chain.tx(people["creator"], "cancel_campaign", 0)
     assert chain.view("get_campaign", 0)["status"] == "cancelled"
     chain.tx(people["bob"], "claim_refund", 0)
-    assert chain.paid_to(people["bob"]) == 100 * GEN and chain.balance == 0
+    chain.claim_all(people)
+    assert chain.paid_to(people["bob"]) == 100 * GEN and chain.paid_to(people["creator"]) == 5 * GEN
+    assert chain.balance == 0
 
 
 def test_goal_missed_campaign_cannot_be_cancelled_after_the_deadline_but_still_refunds(chain, people):
@@ -179,8 +181,10 @@ def test_goal_missed_campaign_cannot_be_cancelled_after_the_deadline_but_still_r
     chain.set_time(T0 + 8 * DAY)
     chain.reverts(people["creator"], "cancel_campaign", 0, match="funding is over")
     chain.tx(people["dave"], "close_funding", 0)
-    assert chain.paid_to(people["creator"]) == 5 * GEN                 # bond back, as for any missed goal
+    assert chain.credit(people["creator"]) == 5 * GEN                  # bond back, as for any missed goal
     chain.tx(people["bob"], "claim_refund", 0)
+    chain.claim_all(people)
+    assert chain.paid_to(people["creator"]) == 5 * GEN and chain.paid_to(people["bob"]) == 10 * GEN
     assert chain.balance == 0
 
 
@@ -222,7 +226,7 @@ def test_a_quote_made_of_tiny_fragments_does_not_release_money(chain, people):
     chain.tx(people["creator"], "review", 0)
     m = chain.view("get_milestone", 0, 0)
     assert m["state"] == "open" and m["verdict"] == "unclear" and m["tranche"] == "0"
-    assert chain.paid_to(people["creator"]) == 0
+    assert chain.paid_to(people["creator"]) == 0 and chain.credit(people["creator"]) == 0
 
 
 # ===========================================================================

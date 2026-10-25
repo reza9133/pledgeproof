@@ -36,6 +36,8 @@ class DirectBackend(live.Backend):
         return True
 
     def balance(self, address):
+        if address == "0xdirect":                       # the vault itself
+            return self.chain.balance
         return 10**30 - self.spent.get(address, 0) + self.chain.paid_to(address)
 
     def deploy(self, acct, code):
@@ -132,6 +134,68 @@ def test_the_script_notices_a_broken_contract(chain, monkeypatch):
     backend = DirectBackend(chain)
     report = live.run(backend, ["unrelated"], False, 1, 100, 10**18, echo=False)
     assert any(r.status == "FAIL" for r in report.results)
+
+
+def claim_checks(report):
+    return [r for r in report.results if "claim_payout" in r.name or "claim" in r.name.lower()]
+
+
+def test_the_happy_path_pulls_every_tranche_with_claim_payout(chain):
+    """After each approved milestone the creator calls claim_payout and the balances are reconciled."""
+    backend, report = run_scenarios(chain, only=["happy"])
+    assert failures(report) == []
+    names = [r.name for r in report.results if r.status == "PASS"]
+    for index in (1, 2):
+        assert f"milestone {index}: creator calls claim_payout" in names
+        assert f"milestone {index} review: the vault's balance did not change (no push transfer)" in names
+    assert any("wallet received the claim" in n for n in names)
+    assert any("the vault's real balance equals locked + credits" in n for n in names)
+    ctx = report.ctx
+    assert [r["who"] for r in ctx.claim_rows] == ["creator", "creator"]
+    assert sum(r["claimed"] for r in ctx.claim_rows) == 4 * 10**18 + int(chain.view("required_bond", 4 * 10**18))
+    assert chain.balance == 0 and ctx.owed.get("creator") == 0
+
+
+def test_cancel_and_refunds_are_claim_refund_then_claim_payout(chain):
+    backend, report = run_scenarios(chain, only=["cancel"])
+    assert failures(report) == []
+    ctx = report.ctx
+    assert [r["who"] for r in ctx.claim_rows] == ["creator", "bob", "carol"]      # bond first, then both backers
+    assert chain.balance == 0
+    kinds = sorted(r["kind"] for r in ctx.payout_rows if "kind" in r)
+    assert kinds == ["bond_returned", "refund", "refund"]                          # refunds are credited by claim_refund
+
+
+def test_the_script_turns_red_when_the_contract_pushes_money_in_a_review(chain, monkeypatch):
+    """The old failure mode, reversed: if a review moved GEN out of the vault the script must say so."""
+    backend = DirectBackend(chain)
+    real_write = DirectBackend.write
+
+    def pushing_write(self, acct, address, fn, args, value=0):
+        tx = real_write(self, acct, address, fn, args, value)
+        if fn == "review" and chain.balance > 0:
+            chain.balance -= 1                                  # a stray outgoing transfer during review
+        return tx
+
+    monkeypatch.setattr(DirectBackend, "write", pushing_write)
+    report = live.run(backend, ["happy"], False, 2, 100, 10**18, echo=False, payout_wait=0)
+    bad = [r.name for r in report.results if r.status == "FAIL"]
+    assert any("the vault's balance did not change" in n for n in bad), bad
+
+
+def test_the_script_turns_red_when_a_claim_does_not_pay(chain, monkeypatch):
+    backend = DirectBackend(chain)
+    real_write = DirectBackend.write
+
+    def swallowing_write(self, acct, address, fn, args, value=0):
+        if fn == "claim_payout":                                # debits the credit but the GEN never arrives
+            chain.hold_transfers = True
+        return real_write(self, acct, address, fn, args, value)
+
+    monkeypatch.setattr(DirectBackend, "write", swallowing_write)
+    report = live.run(backend, ["cancel"], False, 1, 100, 10**18, echo=False, payout_wait=0)
+    bad = [r.name for r in report.results if r.status == "FAIL"]
+    assert any("wallet received the claim" in n for n in bad), bad
 
 
 def test_report_writes_json(chain, tmp_path):

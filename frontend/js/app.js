@@ -261,7 +261,7 @@ if (detail) {
     try {
       const r = await fn((h) => { hash = h; setTx(name + ": submitted, waiting for validators…" + (slow ? " (this can take a few minutes)" : ""), false, h); });
       /* ACCEPTED is provisional and money emitted by the contract moves only at FINALIZED: do not say "done" before that. */
-      setTx(name + ": accepted by the validators. Not final yet: payouts are sent only when the transaction is finalized.", false, hash || r?.hash);
+      setTx(name + ": accepted by the validators. Not final yet: GEN leaves the vault only when a claim is finalized.", false, hash || r?.hash);
       await render(true);
       const fin = r?.finalized ? await r.finalized : { ok: true };
       setTx(fin.timedOut ? name + ": accepted, but finalization has not been seen yet. Check the transaction again later; nothing is final until then."
@@ -284,8 +284,8 @@ if (detail) {
     if (me) { try { pos = await chain.read("get_position", [BigInt(id), me]); } catch {} }
     const cur = ms[c.next_milestone], pledged = N(pos.pledged);
     if (c.status === "active" && isCreator && cur) { try { token = await chain.read("get_proof_token", [BigInt(id), c.next_milestone]); } catch {} }
-    let pays = [], led = null;
-    try { pays = await chain.payouts(id); led = await chain.ledger(); } catch {}
+    let pays = [], myCredit = 0n;
+    try { pays = await chain.credits(id); if (me) myCredit = BigInt(await chain.creditOf(me)); } catch {}
     if (rid !== rseq) return;
     const t = nowSec();
 
@@ -295,9 +295,8 @@ if (detail) {
 ${m.proof_url ? `<small>Proof: <a href="${esc(httpsOnly(m.proof_url))}" target="_blank" rel="noopener noreferrer">${esc(m.proof_url)}</a></small>` : ""}
 ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (confidence ${m.confidence}) · ${m.attempts} review${m.attempts === 1 ? "" : "s"}${m.reason ? `<br>${esc(m.reason)}` : ""}${m.quote ? `<br><i>“${esc(m.quote)}”</i>` : ""}</div>` : ""}</li>`).join("");
 
-    const PATIENCE = 3 * 86400, kindName = { tranche: "Milestone payment", tranche_and_bond: "Last milestone payment + bond", refund: "Refund", pledge_withdrawn: "Withdrawn pledge", bond_returned: "Bond returned" };
-    const resendable = (p) => p.state === "sent" && t >= Number(p.last_sent_at) + PATIENCE && led && led.state === "none_landed";
-    const payHtml = pays.length ? `<h3 style="margin-top:34px">Payments</h3><p class="note">Each payment is sent by the contract and stays <b>sent</b> until the contract's own balance shows the money left. It then becomes <b>delivered</b>. A payment that never arrives can be sent again after 3 days.</p><ol class="mslist">${pays.map((p) => `<li class="ms ${p.state === "settled" ? "passed" : "pending"}"><div class="row" style="justify-content:space-between"><b>${esc(kindName[p.kind] || p.kind)} · ${gen(p.amount)} GEN</b><span class="pill ${p.state === "settled" ? "completed" : "active"}">${p.state === "settled" ? "delivered" : "sent, not confirmed yet"}</span></div><small>To <a href="${C.explorer}/address/${esc(p.to)}" target="_blank" rel="noopener noreferrer">${short(p.to)}</a> · attempts ${p.attempts}</small>${resendable(p) ? ` <button class="btn ghost mini" data-resend="${esc(p.id)}" type="button">Send again</button>` : ""}</li>`).join("")}</ol>${led && led.state === "all_landed" ? `<button class="btn ghost" id="reconcile" type="button">Confirm deliveries</button>` : ""}` : "";
+    const kindName = { tranche: "Milestone payment", tranche_and_bond: "Last milestone payment + bond", refund: "Refund", pledge_withdrawn: "Withdrawn pledge", bond_returned: "Bond returned" };
+    const payHtml = pays.length ? `<h3 style="margin-top:34px">Payments</h3><p class="note">The contract never pushes money. Each amount below was <b>credited</b> to its beneficiary, who collects everything credited to them with one <b>Claim</b> transaction. The GEN reaches the wallet when that transaction is finalized.</p><ol class="mslist">${pays.map((p) => `<li class="ms passed"><div class="row" style="justify-content:space-between"><b>${esc(kindName[p.kind] || p.kind)} · ${gen(p.amount)} GEN</b><span class="pill completed">credited</span></div><small>To <a href="${C.explorer}/address/${esc(p.to)}" target="_blank" rel="noopener noreferrer">${short(p.to)}</a></small></li>`).join("")}</ol>` : "";
     const acts = [];
     if (!me) acts.push(`<p class="note">Connect a wallet to take part in this campaign.</p>`);
     else {
@@ -321,8 +320,9 @@ ${m.verdict ? `<div class="verdict"><b>Last verdict: ${esc(m.verdict)}</b> (conf
         const due = effDue(c, cur), grace = cur.state === "pending" ? Number(cur.submitted_at) + 3 * 86400 : 0;
         if (t >= due && t >= grace) acts.push(`<button class="btn ghost" id="default">Declare default (milestone overdue)</button>`);
       }
-      if ((c.status === "failed" || c.status === "cancelled") && pledged > 0n) acts.push(`<button class="btn" id="refund">Claim refund (${gen(pos.refundable_now)} GEN)</button>`);
-      if (!acts.length) acts.push(`<p class="note">Nothing for you to do on this campaign right now.</p>`);
+      if ((c.status === "failed" || c.status === "cancelled") && pledged > 0n) acts.push(`<button class="btn" id="refund">Credit my refund (${gen(pos.refundable_now)} GEN)</button><small>Step 1 of 2: moves your share onto your balance. Then use Claim.</small>`);
+      if (!acts.length && myCredit <= 0n) acts.push(`<p class="note">Nothing for you to do on this campaign right now.</p>`);
+      if (myCredit > 0n) acts.push(`<button class="btn" id="claim">Claim ${gen(myCredit)} GEN</button><small>Everything credited to your address, across all campaigns, in one transfer.</small>`);
     }
 
     detail.innerHTML = `<div class="row" style="justify-content:space-between"><span class="pill ${esc(c.status)}">${esc(c.status)}${c.fail_reason ? " · " + esc(c.fail_reason.replace(/_/g, " ")) : ""}</span><small>Creator <a href="${C.explorer}/address/${esc(c.creator)}" target="_blank" rel="noopener noreferrer">${short(c.creator)}</a>${isCreator ? " (you)" : ""}</small></div>
@@ -355,8 +355,7 @@ ${payHtml}
     on("#review", () => run("Review", (h) => chain.write("review", [BigInt(id)], 0n, h), true));
     on("#default", () => run("Declare default", (h) => chain.write("declare_default", [BigInt(id)], 0n, h)));
     on("#refund", () => run("Refund", (h) => chain.write("claim_refund", [BigInt(id)], 0n, h)));
-    on("#reconcile", () => run("Confirm deliveries", (h) => chain.write("reconcile_payouts", [50], 0n, h)));
-    detail.querySelectorAll("[data-resend]").forEach((b) => (b.onclick = () => run("Send payment again", (h) => chain.write("retry_payout", [BigInt(b.dataset.resend)], 0n, h))));
+    on("#claim", () => run("Claim payout", (h) => chain.write("claim_payout", [], 0n, h)));
   }
   addEventListener("pp-connected", () => render());
   PP.refresh = () => render(true);

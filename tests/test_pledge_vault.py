@@ -118,7 +118,11 @@ def test_withdraw_pledge(chain, people):
     chain.tx(people["bob"], "back", 0, value=30 * GEN)
     chain.reverts(people["carol"], "withdraw_pledge", 0, match="no pledge")
     chain.tx(people["bob"], "withdraw_pledge", 0)
-    assert chain.paid_to(people["bob"]) == 30 * GEN
+    assert chain.paid_to(people["bob"]) == 0                 # credited, not sent
+    assert chain.credit(people["bob"]) == 30 * GEN
+    solvency_check(chain)
+    chain.tx(people["bob"], "claim_payout")
+    assert chain.paid_to(people["bob"]) == 30 * GEN and chain.credit(people["bob"]) == 0
     c = chain.view("get_campaign", 0)
     assert c["raised"] == "0" and c["backer_count"] == 0
     chain.reverts(people["bob"], "withdraw_pledge", 0, match="no pledge")
@@ -135,7 +139,8 @@ def test_cancel_campaign(chain, people):
     chain.tx(people["carol"], "back", 0, value=20 * GEN)
     chain.reverts(people["bob"], "cancel_campaign", 0, match="only the creator")
     chain.tx(people["creator"], "cancel_campaign", 0)
-    assert chain.paid_to(people["creator"]) == 5 * GEN              # bond back immediately
+    assert chain.paid_to(people["creator"]) == 0 and chain.transfers == []   # cancelling sends nothing
+    assert chain.credit(people["creator"]) == 5 * GEN               # the bond is credited at once
     c = chain.view("get_campaign", 0)
     assert c["status"] == "cancelled" and c["fail_reason"] == "cancelled" and c["bond"] == "0"
     chain.reverts(people["creator"], "cancel_campaign", 0, match="still funding")
@@ -143,7 +148,12 @@ def test_cancel_campaign(chain, people):
     solvency_check(chain)
     chain.tx(people["bob"], "claim_refund", 0)
     chain.tx(people["carol"], "claim_refund", 0)
+    assert chain.transfers == []                                    # refunds are credits until claimed
+    assert chain.credit(people["bob"]) == 30 * GEN and chain.credit(people["carol"]) == 20 * GEN
+    solvency_check(chain)
+    chain.claim_all(people)
     assert chain.paid_to(people["bob"]) == 30 * GEN and chain.paid_to(people["carol"]) == 20 * GEN
+    assert chain.paid_to(people["creator"]) == 5 * GEN
     assert chain.balance == 0
 
 
@@ -167,10 +177,13 @@ def test_goal_missed_refunds_everyone_and_returns_bond(chain, people):
     chain.tx(people["dave"], "close_funding", 0)
     c = chain.view("get_campaign", 0)
     assert c["status"] == "failed" and c["fail_reason"] == "goal_not_met"
-    assert chain.paid_to(people["creator"]) == 5 * GEN
+    assert chain.transfers == [] and chain.credit(people["creator"]) == 5 * GEN
     assert chain.view("get_position", 0, str(people["bob"]))["refundable_now"] == str(30 * GEN)
     chain.tx(people["bob"], "claim_refund", 0)
     chain.tx(people["carol"], "claim_refund", 0)
+    assert chain.transfers == []
+    chain.claim_all(people)
+    assert chain.paid_to(people["creator"]) == 5 * GEN
     assert chain.paid_to(people["bob"]) == 30 * GEN
     assert chain.paid_to(people["carol"]) == 29 * GEN + 1
     assert chain.balance == 0
@@ -237,11 +250,17 @@ def test_review_pays_the_tranche(chain, people):
     pass_milestone(chain, people)
     c = chain.view("get_campaign", 0)
     assert c["released"] == str(30 * GEN) and c["next_milestone"] == 1 and c["strikes"] == 0
-    assert chain.paid_to(people["creator"]) == 30 * GEN
+    assert chain.transfers == [] and chain.paid_to(people["creator"]) == 0   # review never sends GEN
+    assert chain.credit(people["creator"]) == 30 * GEN
+    assert chain.balance == 100 * GEN + 5 * GEN                           # the vault still holds everything
     m = chain.view("get_milestone", 0, 0)
     assert m["state"] == "passed" and m["tranche"] == str(30 * GEN)
     assert m["verdict"] == "met" and m["confidence"] == 90 and m["quote"] == BODY and m["attempts"] == 1
     assert int(c["current_since"]) == chain.now
+    solvency_check(chain)
+    chain.tx(people["creator"], "claim_payout")
+    assert chain.paid_to(people["creator"]) == 30 * GEN and chain.credit(people["creator"]) == 0
+    assert chain.balance == 75 * GEN
     solvency_check(chain)
 
 
@@ -253,6 +272,9 @@ def test_full_campaign_pays_everything_and_returns_bond(chain, people):
         solvency_check(chain)
     c = chain.view("get_campaign", 0)
     assert c["status"] == "completed" and c["bond"] == "0"
+    assert chain.transfers == []
+    assert chain.credit(people["creator"]) == 100 * GEN + 5 * GEN       # tranches and bond, credited
+    chain.tx(people["creator"], "claim_payout")
     assert chain.paid_to(people["creator"]) == 100 * GEN + 5 * GEN
     assert chain.balance == 0
     chain.reverts(people["bob"], "claim_refund", 0, match="nothing to refund")
@@ -267,8 +289,12 @@ def test_odd_amounts_leave_no_dust(chain, people):
     fund_and_activate(chain, people, pledges={"bob": 77, "carol": 34})       # raised = 111
     for _ in range(3):
         pass_milestone(chain, people)
-    amounts = [t[1] for t in chain.transfers]
+    kinds = [e["kind"] for e in chain.view("list_credits", 0, 0, 10)]
+    amounts = [int(e["amount"]) for e in chain.view("list_credits", 0, 0, 10)]
+    assert kinds == ["tranche", "tranche", "tranche_and_bond"]
     assert amounts[0] == 111 * 3333 // 10000 and sum(amounts) == 111 + 5
+    chain.tx(people["creator"], "claim_payout")                          # one claim collects every tranche
+    assert [t[1] for t in chain.transfers] == [111 + 5]
     assert chain.balance == 0
 
 
@@ -304,7 +330,7 @@ def test_low_confidence_approval_does_nothing(chain, people):
     run_review(chain, people)
     c, m = chain.view("get_campaign", 0), chain.view("get_milestone", 0, 0)
     assert c["released"] == "0" and c["strikes"] == 0 and m["state"] == "open" and m["verdict"] == "met"
-    assert chain.transfers == []
+    assert chain.transfers == [] and chain.credit(people["creator"]) == 0
     chain.reverts(people["creator"], "review", 0, match="no submitted proof")   # must resubmit
 
 
@@ -438,10 +464,12 @@ def test_two_strikes_fail_the_campaign_and_slash_the_bond(chain, people):
     c = chain.view("get_campaign", 0)
     assert c["status"] == "failed" and c["fail_reason"] == "strikes" and c["bond"] == "0"
     assert c["refund_pool"] == str(105 * GEN) and c["refund_weight"] == str(100 * GEN)
-    assert chain.paid_to(people["creator"]) == 0
+    assert chain.paid_to(people["creator"]) == 0 and chain.credit(people["creator"]) == 0
     solvency_check(chain)
     chain.tx(people["bob"], "claim_refund", 0)
     chain.tx(people["carol"], "claim_refund", 0)
+    assert chain.transfers == []
+    chain.claim_all(people)
     assert chain.paid_to(people["bob"]) == 63 * GEN and chain.paid_to(people["carol"]) == 42 * GEN
     assert chain.balance == 0
 
@@ -466,8 +494,10 @@ def test_failure_after_partial_delivery_refunds_the_unreleased_part(chain, peopl
     solvency_check(chain)
     chain.tx(people["carol"], "claim_refund", 0)
     chain.tx(people["bob"], "claim_refund", 0)
+    chain.claim_all(people)
     assert chain.paid_to(people["bob"]) + chain.paid_to(people["carol"]) == 75 * GEN
     assert chain.paid_to(people["bob"]) == 45 * GEN
+    assert chain.paid_to(people["creator"]) == 30 * GEN                 # the tranche earned before the failure
     assert chain.balance == 0
     chain.reverts(people["creator"], "submit_proof", 0, PROOF_URL, match="not active")
 
@@ -554,9 +584,12 @@ def test_pro_rata_refunds_with_awkward_numbers(chain, people):
     preview = {n: int(chain.view("get_position", 0, str(people[n]))["refundable_now"]) for n in order}
     for name in order:
         chain.tx(people[name], "claim_refund", 0)
+    assert sum(chain.credit(people[n]) for n in order) == 11
+    assert preview["erin"] == chain.credit(people["erin"])             # first claimant matches its preview
+    chain.claim_all(people, order)
     assert sum(chain.paid_to(people[n]) for n in order) == 11
     assert chain.balance == 0
-    assert preview["erin"] == chain.paid_to(people["erin"])             # first claimant matches its preview
+    assert preview["erin"] == chain.paid_to(people["erin"])
 
 
 def test_fuzz_money_is_conserved_and_the_vault_is_always_solvent(chain, people, direct_vm):
@@ -591,6 +624,14 @@ def test_fuzz_money_is_conserved_and_the_vault_is_always_solvent(chain, people, 
     for funder in rng.sample(pledged, len(pledged)):
         chain.tx(funder, "claim_refund", 0)
         solvency_check(chain)
+    for funder in rng.sample(pledged, len(pledged)):
+        if chain.credit(funder) > 0:                                # a tiny pledge can round to a zero share
+            chain.claim(funder)
+        else:
+            chain.reverts(funder, "claim_payout", match="nothing to claim")
+        solvency_check(chain)
+    chain.claim(people["creator"])
+    solvency_check(chain)
     assert chain.balance == 0
     paid = sum(chain.received.values())
     assert paid == total_in

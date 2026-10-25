@@ -193,10 +193,11 @@ def test_close_funding_late_gives_the_first_milestone_a_full_grace_window(chain,
 def test_replaying_review_after_payment_does_nothing(chain, people):
     activate(chain, people)
     pay_first_milestone(chain, people)
-    paid = chain.paid_to(people["creator"])
+    owed = chain.credit(people["creator"])
+    assert owed > 0
     chain.reverts(people["creator"], "review", 0, match="no submitted proof")
     chain.reverts(people["bob"], "review", 0, match="no submitted proof")
-    assert chain.paid_to(people["creator"]) == paid
+    assert chain.credit(people["creator"]) == owed and chain.paid_to(people["creator"]) == 0
 
 
 def test_the_same_page_cannot_be_reused_for_the_next_milestone(chain, people):
@@ -219,7 +220,7 @@ def test_a_page_with_someone_elses_token_gets_nothing(chain, people):
     approve(chain)
     chain.tx(people["creator"], "review", 0)
     assert chain.view("get_milestone", 0, 0)["verdict"] == "unclear"
-    assert chain.paid_to(people["creator"]) == 0
+    assert chain.paid_to(people["creator"]) == 0 and chain.credit(people["creator"]) == 0
     assert chain.llm_calls_made() == 0                                        # the model was never even asked
 
 
@@ -248,7 +249,7 @@ def test_an_injection_cannot_buy_an_approval_when_the_model_stays_unconvinced(ch
     submit(chain, people, body=injection)
     chain.set_llm("unclear", 20, "", "The page contains no evidence of delivery.")
     chain.tx(people["creator"], "review", 0)
-    assert chain.view("get_milestone", 0, 0)["state"] == "open" and chain.paid_to(people["creator"]) == 0
+    assert chain.view("get_milestone", 0, 0)["state"] == "open" and chain.credit(people["creator"]) == 0
 
 
 def test_an_injected_quote_that_is_not_on_the_page_is_withheld(chain, people):
@@ -327,7 +328,12 @@ def test_double_claim_and_stranger_claim_are_refused(chain, people):
     chain.reverts(people["creator"], "claim_refund", 0, match="no unclaimed pledge")
     chain.tx(people["bob"], "claim_refund", 0)
     chain.reverts(people["bob"], "claim_refund", 0, match="no unclaimed pledge")
-    assert chain.paid_to(people["bob"]) == 10 * GEN and chain.balance == 0
+    chain.tx(people["bob"], "claim_payout")
+    chain.reverts(people["bob"], "claim_payout", match="nothing to claim")      # the credit is gone
+    chain.reverts(people["mallory"], "claim_payout", match="nothing to claim")  # strangers have no credit
+    assert chain.paid_to(people["bob"]) == 10 * GEN and chain.balance == 5 * GEN   # the creator's bond is still theirs
+    chain.claim(people["creator"])
+    assert chain.balance == 0
 
 
 def test_withdrawn_backer_cannot_claim_a_refund_later(chain, people):
@@ -339,6 +345,7 @@ def test_withdrawn_backer_cannot_claim_a_refund_later(chain, people):
     chain.tx(people["dave"], "close_funding", 0)
     chain.reverts(people["bob"], "claim_refund", 0, match="no unclaimed pledge")
     chain.tx(people["carol"], "claim_refund", 0)
+    chain.claim_all(people)
     assert chain.paid_to(people["bob"]) == 10 * GEN and chain.paid_to(people["carol"]) == 10 * GEN
     assert chain.balance == 0
 
@@ -363,7 +370,9 @@ def test_default_pays_backers_the_bond_in_proportion_to_their_pledges(chain, peo
     assert chain.view("get_position", 0, str(people["carol"]))["refundable_now"] == str(42 * GEN)
     chain.tx(people["carol"], "claim_refund", 0)
     chain.tx(people["bob"], "claim_refund", 0)
+    chain.claim_all(people)
     assert chain.balance == 0 and chain.paid_to(people["creator"]) == 0
+    assert chain.paid_to(people["bob"]) == 63 * GEN and chain.paid_to(people["carol"]) == 42 * GEN
 
 
 def test_a_creator_who_delivers_everything_gets_everything_and_backers_get_nothing_back(chain, people):
@@ -372,8 +381,11 @@ def test_a_creator_who_delivers_everything_gets_everything_and_backers_get_nothi
         pay_first_milestone(chain, people)
     c = chain.view("get_campaign", 0)
     assert c["status"] == "completed" and c["bond"] == "0"
+    assert chain.paid_to(people["creator"]) == 0
+    chain.tx(people["creator"], "claim_payout")
     assert chain.paid_to(people["creator"]) == 100 * GEN + 5 * GEN
     chain.reverts(people["bob"], "claim_refund", 0, match="nothing to refund")
+    chain.reverts(people["bob"], "claim_payout", match="nothing to claim")
     assert chain.balance == 0
 
 
@@ -389,6 +401,7 @@ def test_sock_puppet_backing_recovers_only_a_proportional_share_of_the_bond(chai
     chain.tx(people["dave"], "declare_default", 0)
     chain.tx(people["mallory"], "claim_refund", 0)
     chain.tx(people["bob"], "claim_refund", 0)
+    chain.claim_all(people)
     assert chain.paid_to(people["mallory"]) == 90 * GEN + 4.5 * GEN
     assert chain.paid_to(people["bob"]) == 10 * GEN + 0.5 * GEN
     assert chain.balance == 0
@@ -410,6 +423,8 @@ def test_many_backers_all_get_exactly_their_share_with_awkward_numbers(chain, pe
     chain.tx(people["dave"], "declare_default", 0)
     for who in funders[::-1] + [people["bob"]]:
         chain.tx(who, "claim_refund", 0)
+    for who in funders[::-1] + [people["bob"]]:
+        chain.claim(who)
     assert chain.balance == 0
     assert sum(chain.paid_to(w) for w in funders) + chain.paid_to(people["bob"]) == sum(amounts) + top_up + 1 + 10**6
 
@@ -422,6 +437,7 @@ def test_huge_amounts_do_not_overflow_or_lose_precision(chain, people):
     chain.tx(people["dave"], "close_funding", 0)
     for _ in range(3):
         pay_first_milestone(chain, people)
+    chain.tx(people["creator"], "claim_payout")
     assert chain.paid_to(people["creator"]) == goal + int(chain.view("required_bond", goal))
     assert chain.balance == 0
 

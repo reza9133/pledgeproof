@@ -18,7 +18,16 @@ directly:
 Scenarios never depend on how the model words its answer. They assert what the
 contract does with money: nothing is released for a page without the proof token, a
 roadmap, an injection or an unrelated page, and the happy path releases every tranche
-and returns the bond. Because a real model is not deterministic, the "approval" step
+and returns the bond.
+
+Money moves by PULL payments. ``review``, ``close_funding``, ``cancel_campaign``,
+``withdraw_pledge`` and ``claim_refund`` only *credit* an internal ledger and send no GEN
+(the script asserts that the vault's balance does not change in those transactions).
+After every approved milestone, and after a campaign ended without delivery, the
+beneficiary calls ``claim_payout`` (a backer calls ``claim_refund`` first); the script then
+checks that the credit was debited at once, waits for the transaction to be FINALIZED
+(the external transfer runs then), and reconciles the recipient's wallet and the vault's
+books (``balance == locked_total + total_credits``). Because a real model is not deterministic, the "approval" step
 retries a few times before it is reported as a failure.
 
 The module has no import-time side effects and imports genlayer-py lazily, so the
@@ -470,7 +479,8 @@ def write_manifest(ctx: "Ctx", backend: "Backend", network: str, rpc: str) -> di
         "deployment": {"tx_hash": deploy_tx, "status_now": backend.tx_status(deploy_tx) if deploy_tx else ""},
         "accounts": {l: a.address for l, a in ctx.accts.items()},
         "transactions": ctx.txs,
-        "outgoing_transfers_and_balances": ctx.payout_rows,
+        "credits_and_balances": ctx.payout_rows,
+        "claims": ctx.claim_rows,
         "unfinalized_transactions": [t["tx_hash"] for t in ctx.txs
                                      if t["tx_hash"] and t.get("status_now") and "FINAL" not in t["status_now"].upper()],
     }
@@ -481,13 +491,19 @@ def write_manifest(ctx: "Ctx", backend: "Backend", network: str, rpc: str) -> di
              "## Transactions", "", "| # | scenario | call | from | value (wei) | tx | status now |", "|---|---|---|---|---|---|---|"]
     for t in ctx.txs:
         lines.append(f"| {t['n']} | {t['scenario']} | `{t['fn']}` | {t['who']} | {t['value_wei']} | `{t['tx_hash'] or 'n/a'}` | {t.get('status_now') or t['status_when_accepted'] or '?'} |")
-    lines += ["", "## Outgoing transfers (the vault's payout ledger)", "",
-              "| scenario | id | kind | recipient | amount (wei) | state | attempts |", "|---|---|---|---|---|---|---|"]
+    lines += ["", "## Credits (the vault's credit log: nothing is pushed, everything is credited)", "",
+              "| scenario | id | kind | beneficiary | amount (wei) |", "|---|---|---|---|---|"]
     for r in ctx.payout_rows:
         if "kind" in r:
-            lines.append(f"| {r['scenario']} | {r['id']} | {r['kind']} | {r['recipient']} `{r['to']}` | {r['amount']} | {r['state']} | {r['attempts']} |")
-    lines += ["", "## Recipient balance evidence", "",
-              "| scenario | account | before | sent into vault | paid by vault | after | expected |", "|---|---|---|---|---|---|---|"]
+            lines.append(f"| {r['scenario']} | {r['id']} | {r['kind']} | {r['recipient']} `{r['to']}` | {r['amount']} |")
+    lines += ["", "## Claims (`claim_payout`, the only transaction that sends GEN)", "",
+              "| scenario | who | claimed (wei) | wallet before | wallet after | expected | tx | status when accepted |",
+              "|---|---|---|---|---|---|---|---|"]
+    for r in ctx.claim_rows:
+        lines.append(f"| {r['scenario']} | {r['who']} | {r['claimed']} | {r['wallet_before']} | {r['wallet_after']} | "
+                     f"{r['expected_wallet']} | `{r['claim_tx'] or 'n/a'}` | {r['status'] or '?'} |")
+    lines += ["", "## Recipient balance evidence (per scenario)", "",
+              "| scenario | account | before | sent into vault | pulled by claim_payout | after | expected |", "|---|---|---|---|---|---|---|"]
     for r in ctx.payout_rows:
         if "balance_after" in r:
             lines.append(f"| {r['scenario']} | {r['recipient']} | {r['balance_before']} | {r['sent_into_vault']} | {r['paid_by_vault']} | {r['balance_after']} | {r['expected']} |")
@@ -600,10 +616,13 @@ class Ctx:
     accts: dict = field(default_factory=dict)
     contract: str = ""
     last_tx: Optional[Tx] = None
-    payout_wait: int = 900                      # seconds to wait for emitted transfers to land
+    payout_wait: int = 900                      # seconds to wait for a claim's transfer to land after finalization
     sent_in: dict = field(default_factory=dict)             # label -> wei the account attached to its transactions
+    owed: dict = field(default_factory=dict)                # label -> wei credited to the account and not yet claimed
+    claimed: dict = field(default_factory=dict)             # label -> wei the account has pulled with claim_payout
     txs: list = field(default_factory=list)                 # manifest: every transaction
-    payout_rows: list = field(default_factory=list)         # manifest: outgoing transfers, with balance evidence
+    payout_rows: list = field(default_factory=list)         # manifest: credit-log entries and balance evidence
+    claim_rows: list = field(default_factory=list)          # manifest: every claim_payout with its evidence
 
     # -- chain helpers ----------------------------------------------------------
     def view(self, fn: str, *args) -> Any:
@@ -627,62 +646,148 @@ class Ctx:
                          "child_messages": _child_messages(tx.receipt)})
         return tx
 
-    # -- payout evidence --------------------------------------------------------
+    # -- pull-payment evidence ----------------------------------------------------
     def snapshot(self, *labels: str) -> dict:
-        """Balances and money sent so far, taken before the transactions whose payouts will be checked."""
-        return {l: (self.B.balance(self.accts[l].address), self.sent_in.get(l, 0)) for l in labels}
+        """Balance, money sent in and money already pulled, taken before the transactions that will be checked."""
+        return {l: (self.B.balance(self.accts[l].address), self.sent_in.get(l, 0), self.claimed.get(l, 0)) for l in labels}
 
-    def verify_payouts(self, name: str, cids: list, before: dict) -> None:
-        """Prove that every payment of these campaigns left the vault AND reached its recipient.
+    def owe(self, label: str, amount: int) -> None:
+        """Record that the contract has just credited ``amount`` to ``label`` (a deliberate, checked expectation)."""
+        self.owed[label] = self.owed.get(label, 0) + int(amount)
 
-        1. wait for the last transaction to be FINALIZED (emitted transfers run on finalization);
-        2. let the vault's own ledger classify them (``get_ledger``) and settle them
-           (``reconcile_payouts``): a payout is only ``settled`` when the vault's balance dropped;
-        3. compare every recipient's balance with what they sent in and were paid.
+    def credit_of(self, label: str) -> int:
+        return int(self.view("get_credit", self.accts[label].address))
+
+    def vault_balance(self) -> int:
+        return self.B.balance(self.contract)
+
+    def accounting(self) -> dict:
+        return self.view("get_accounting")
+
+    def check_credit(self, name: str, label: str) -> int:
+        """The contract's credit for ``label`` must equal what the scenario expects them to be owed."""
+        have, want = self.credit_of(label), self.owed.get(label, 0)
+        self.rep.check(f"{name}: {label} is credited {want} wei (nothing was sent yet)", have == want,
+                       f"get_credit says {have}, expected {want}")
+        return have
+
+    def no_gen_moved(self, name: str, vault_before: int) -> None:
+        """Consensus-time transactions must not move GEN: the vault's balance is unchanged."""
+        now = self.vault_balance()
+        self.rep.check(f"{name}: the vault's balance did not change (no push transfer)", now == vault_before,
+                       f"vault balance {vault_before} -> {now}")
+
+    def claim_payout(self, name: str, label: str, *, refund_cid: Optional[int] = None) -> int:
+        """``label`` pulls everything credited to them and the script reconciles the result.
+
+        A backer of a failed or cancelled campaign passes ``refund_cid`` to first move their
+        share onto their credit with ``claim_refund``. Then:
+
+        1. ``claim_payout`` is sent by the beneficiary themselves;
+        2. the credit is debited at once, and a second claim is refused;
+        3. after FINALIZATION (the external transfer runs then) the recipient's wallet has grown
+           by the credit, within a fee tolerance;
+        4. the vault's books balance: ``balance == locked_total + total_credits``.
+
+        Returns the amount that was claimed.
         """
         rep = self.rep
-        self.B.settle(self.last_tx, rep)
+        if refund_cid is not None:
+            before_refund = self.credit_of(label)
+            pos = self.view("get_position", refund_cid, self.accts[label].address)
+            share = int(pos["refundable_now"])
+            vault0 = self.vault_balance()
+            self.expect_ok(f"{name}: {label} moves the refund onto their credit", label, "claim_refund", refund_cid)
+            self.no_gen_moved(f"{name}: claim_refund", vault0)
+            self.owe(label, share)
+            rep.check(f"{name}: {label}'s credit grew by the previewed refund share",
+                      self.credit_of(label) - before_refund == share, f"{self.credit_of(label)} - {before_refund} vs {share}")
+        credit = self.check_credit(name, label)
+        if credit <= 0:
+            rep.check(f"{name}: {label} has something to claim", False, "no credit")
+            return 0
+        addr = self.accts[label].address
+        bal0 = self.B.balance(addr)
+        sent0 = self.sent_in.get(label, 0)
+        tx = self.expect_ok(f"{name}: {label} calls claim_payout", label, "claim_payout")
+        rep.check(f"{name}: {label}'s credit is debited as soon as the claim is accepted", self.credit_of(label) == 0,
+                  f"credit is still {self.credit_of(label)}")
+        self.ensure_final(tx)
+        self.owed[label] = 0
+        self.claimed[label] = self.claimed.get(label, 0) + credit
+        # the transfer is an external message: it runs when the claim is finalized
+        sent_meanwhile = self.sent_in.get(label, 0) - sent0
+        expected_wallet = bal0 - sent_meanwhile + credit
+        tolerance = self.unit // 5                                       # fees
+        self.B.wait_balance(addr, lambda b: b >= expected_wallet - tolerance, self.payout_wait)
+        now = self.B.balance(addr)
+        rep.check(f"{name}: {label}'s wallet received the claim ({credit} wei)", abs(now - expected_wallet) <= tolerance,
+                  f"wallet {now}, expected about {expected_wallet} (started {bal0}, claimed {credit})")
+        self.expect_revert(f"{name}: {label} cannot claim twice", label, "claim_payout", match="nothing to claim",
+                           watch=lambda: self.credit_of(label))
+        self.claim_rows.append({"scenario": rep.scenario, "who": label, "address": addr, "claimed": credit,
+                                "wallet_before": bal0, "wallet_after": now, "expected_wallet": expected_wallet,
+                                "claim_tx": tx.tx_hash, "status": tx.status})
+        self.reconcile_books(f"{name}: after {label}'s claim")
+        return credit
+
+    def ensure_final(self, tx: Optional[Tx]) -> None:
+        self.B.settle(tx, self.rep)
+
+    def reconcile_books(self, name: str) -> None:
+        """Wait until the vault's real balance equals what it owes, then check that it does.
+
+        Right after a claim the GEN has not left yet (``unallocated``); once the claim is finalized the
+        real balance must equal ``locked_total + total_credits``. Anything else is a hard failure.
+        """
+        rep = self.rep
         end = time.time() + self.payout_wait
+        acc = self.accounting()
         while True:
-            led = self.view("get_ledger")
-            if led["state"] == "all_landed":
-                self.send("mallory", "reconcile_payouts", 50)
-            led = self.view("get_ledger")
-            if led["state"] in ("idle", "unknown") or time.time() >= end:
+            acc = self.accounting()
+            real = self.vault_balance()
+            if real == int(acc["accounted"]) or time.time() >= end:
                 break
             time.sleep(10)
-        rep.info(f"{name}: ledger", json.dumps(led))
-        rows = []
-        for cid in cids:
-            rows += list(self.view("list_payouts", cid, 0, 100))
+        real = self.vault_balance()
+        rep.info(f"{name}: books", json.dumps(acc))
+        rep.check(f"{name}: the vault is solvent", acc["solvent"] is True, json.dumps(acc))
+        rep.check(f"{name}: the vault's real balance equals locked + credits", real == int(acc["accounted"]),
+                  f"real balance {real}, locked_total {acc['locked_total']} + total_credits {acc['total_credits']}")
+        rep.check(f"{name}: the contract's own balance view matches the RPC balance",
+                  acc["balance"] == "" or int(acc["balance"]) == real, f"view {acc['balance']} vs rpc {real}")
+
+    def verify_payouts(self, name: str, cids: list, before: dict) -> None:
+        """Scenario-level reconciliation, after every beneficiary has claimed.
+
+        * every account's credit is zero (everything the campaign owed was pulled);
+        * every account's wallet equals: what it started with, minus what it put into the vault,
+          plus what it pulled with ``claim_payout`` (within a fee tolerance);
+        * the credit log is recorded in the manifest, and the vault's books balance.
+        """
+        rep = self.rep
+        self.ensure_final(self.last_tx)
         by_label = {self.accts[l].address.lower(): l for l in self.accts}
-        paid: dict = {}
-        for row in rows:
-            ok = row["state"] == "settled"
-            rep.check(f"{name}: payout #{row['id']} ({row['kind']}, {int(row['amount'])} wei) left the vault and is settled", ok,
-                      f"state={row['state']} attempts={row['attempts']}: the transfer was emitted but the vault's balance never dropped")
-            label = by_label.get(str(row["to"]).lower())
-            if label and ok:
-                paid[label] = paid.get(label, 0) + int(row["amount"])
-            self.payout_rows.append({**row, "scenario": name, "recipient": label or "?"})
-        rep.check(f"{name}: the vault's own balance matches what it still owes (held)",
-                  led["balance"] != "" and int(led["held"]) == int(led["balance"]),
-                  f"held={led['held']} balance={led['balance']} state={led['state']}")
-        rep.info(f"{name}: vault balance read over RPC", str(self.B.balance(self.contract)))
-        for label, (bal0, sent0) in before.items():
+        for cid in cids:
+            for row in self.view("list_credits", cid, 0, 100):
+                label = by_label.get(str(row["to"]).lower(), "?")
+                self.payout_rows.append({**row, "scenario": name, "recipient": label})
+        for label, (bal0, sent0, claimed0) in before.items():
+            rep.check(f"{name}: {label} has nothing left to claim", self.credit_of(label) == 0,
+                      f"credit {self.credit_of(label)}")
+            pulled = self.claimed.get(label, 0) - claimed0
+            want = bal0 - (self.sent_in.get(label, 0) - sent0) + pulled
             addr = self.accts[label].address
-            want = bal0 - (self.sent_in.get(label, 0) - sent0) + paid.get(label, 0)
-            if paid.get(label, 0) > 0:
+            if pulled > 0:
                 self.B.wait_balance(addr, lambda b: b >= want - self.unit // 5, 120)
             now = self.B.balance(addr)
-            tolerance = self.unit // 5                                   # fees
-            rep.check(f"{name}: {label}'s balance reflects what the vault paid them",
-                      abs(now - want) <= tolerance,
-                      f"balance {now}, expected about {want} (started {bal0}, sent in {self.sent_in.get(label, 0) - sent0}, "
-                      f"paid {paid.get(label, 0)})")
+            rep.check(f"{name}: {label}'s balance reflects what they pulled", abs(now - want) <= self.unit // 5,
+                      f"balance {now}, expected about {want} (started {bal0}, sent in "
+                      f"{self.sent_in.get(label, 0) - sent0}, pulled {pulled})")
             self.payout_rows.append({"scenario": name, "recipient": label, "address": addr, "balance_before": bal0,
-                                     "sent_into_vault": self.sent_in.get(label, 0) - sent0,
-                                     "paid_by_vault": paid.get(label, 0), "balance_after": now, "expected": want})
+                                     "sent_into_vault": self.sent_in.get(label, 0) - sent0, "paid_by_vault": pulled,
+                                     "balance_after": now, "expected": want})
+        self.reconcile_books(name)
 
     def campaign(self, cid: int) -> dict:
         return self.view("get_campaign", cid)
@@ -829,13 +934,20 @@ def s_access_and_validation(ctx: Ctx) -> None:
     ctx.expect_revert("funding cannot be closed early", "mallory", "close_funding", cid, match="still open", watch=watch)
     ctx.expect_revert("nobody can withdraw without a pledge", "bob", "withdraw_pledge", cid, match="no pledge", watch=watch)
     ctx.expect_revert("no refund while funding", "bob", "claim_refund", cid, match="nothing to refund", watch=watch)
+    ctx.expect_revert("nobody has anything to claim yet", "mallory", "claim_payout", match="nothing to claim",
+                      watch=lambda: ctx.credit_of("mallory"))
+    rep.check("a stranger's credit is zero", ctx.credit_of("mallory") == 0, str(ctx.credit_of("mallory")))
     ctx.expect_revert("no review while funding", "creator", "review", cid, match="not active", watch=watch)
     ctx.expect_revert("no default while funding", "mallory", "declare_default", cid, match="not active", watch=watch)
     ctx.expect_revert("unknown campaign", "bob", "back", 999, value=U, match="no campaign")
 
     ctx.expect_ok("bob backs 2 units", "bob", "back", cid, value=2 * U)
+    vault0 = ctx.vault_balance()
     ctx.expect_ok("bob can withdraw", "bob", "withdraw_pledge", cid)
+    ctx.no_gen_moved("withdraw_pledge", vault0)                       # a withdrawal only credits bob
+    ctx.owe("bob", 2 * U)
     rep.check("withdrawal returned the pledge to the books", int(ctx.campaign(cid)["raised"]) == 0, ctx.campaign(cid)["raised"])
+    ctx.claim_payout("withdrawn pledge", "bob")                       # ... and bob pulls it himself
     ctx.fill_and_activate(cid)
     ctx.expect_revert("a full campaign takes no more pledges", "carol", "back", cid, value=U, match="not accepting", watch=watch)
     ctx.expect_revert("creator cannot cancel after funding closed", "creator", "cancel_campaign", cid, match="funding", watch=watch)
@@ -860,6 +972,7 @@ def s_happy_path(ctx: Ctx) -> None:
     expected = [raised * 4000 // 10000, raised - raised * 4000 // 10000]
     for index in range(2):
         passed = False
+        vault_before = ctx.vault_balance()
         for attempt in range(1, ctx.llm_retries + 1):
             m = ctx.submit_and_review(cid, page_good(index, ctx.token(cid, index)))
             rep.info(f"milestone {index + 1}, try {attempt}", describe(m))
@@ -872,6 +985,11 @@ def s_happy_path(ctx: Ctx) -> None:
         m = ctx.milestone(cid, index)
         rep.check(f"milestone {index + 1} tranche is exact", int(m["tranche"]) == expected[index], f"{m['tranche']} vs {expected[index]}")
         rep.check(f"milestone {index + 1} approval carries a real quote", len(str(m["quote"])) >= 12, repr(m["quote"]))
+        # the review credited the creator but moved no GEN; now the creator pulls the money
+        ctx.no_gen_moved(f"milestone {index + 1} review", vault_before)
+        due = int(m["tranche"]) + (bond if index == 1 else 0)         # the last milestone also returns the bond
+        ctx.owe("creator", due)
+        ctx.claim_payout(f"milestone {index + 1}", "creator")
     c = ctx.campaign(cid)
     rep.check("campaign completed", c["status"] == "completed", c["status"])
     rep.check("everything was released", int(c["released"]) == raised, c["released"])
@@ -887,11 +1005,15 @@ def _negative(ctx: Ctx, title: str, page_fn: Callable[[str], str], *, expect_str
     rep.section(title)
     cid = ctx.active_campaign(max_strikes=3)
     page = page_fn(ctx.token(cid, 0))
+    vault_before = ctx.vault_balance()
     m = ctx.submit_and_review(cid, page)
     c = ctx.campaign(cid)
     rep.info("verdict", describe(m))
     rep.check("nothing was released", int(c["released"]) == 0 and m["state"] != "passed", describe(m))
     rep.check("the creator was not paid", m["tranche"] in ("0", 0), str(m["tranche"]))
+    rep.check("the creator was not credited either", ctx.credit_of("creator") == ctx.owed.get("creator", 0),
+              str(ctx.credit_of("creator")))
+    ctx.no_gen_moved("a review that pays nothing", vault_before)
     rep.check("campaign is still active", c["status"] == "active", c["status"])
     if not expect_strike_ok:
         rep.check("no strike was taken", c["strikes"] == 0, str(c["strikes"]))
@@ -940,16 +1062,21 @@ def s_cancel_refund(ctx: Ctx) -> None:
     cid = ctx.launch(goal_units=6, cap_units=8)
     ctx.expect_ok("bob backs 2 units", "bob", "back", cid, value=2 * U)
     ctx.expect_ok("carol backs 1 unit", "carol", "back", cid, value=U)
+    bond = int(ctx.campaign(cid)["bond"])
+    vault0 = ctx.vault_balance()
     ctx.expect_ok("creator cancels", "creator", "cancel_campaign", cid)
+    ctx.no_gen_moved("cancel_campaign", vault0)                       # cancelling only credits the bond
+    ctx.owe("creator", bond)
     c = ctx.campaign(cid)
     rep.check("status cancelled", c["status"] == "cancelled", c["status"])
-    rep.check("bond returned at once", int(c["bond"]) == 0, c["bond"])
+    rep.check("bond left the campaign (credited to the creator)", int(c["bond"]) == 0, c["bond"])
     pos = ctx.view("get_position", cid, bob)
     rep.check("bob can see his refund", int(pos["refundable_now"]) == 2 * U, str(pos))
-    ctx.expect_ok("bob claims", "bob", "claim_refund", cid)
-    ctx.expect_revert("bob cannot claim twice", "bob", "claim_refund", cid, match="no unclaimed")
-    ctx.expect_revert("a stranger cannot claim", "mallory", "claim_refund", cid, match="no unclaimed")
-    ctx.expect_ok("carol claims", "carol", "claim_refund", cid)
+    ctx.claim_payout("cancel: bond", "creator")                       # the creator pulls the bond
+    ctx.claim_payout("cancel: refund", "bob", refund_cid=cid)         # bob: claim_refund, then claim_payout
+    ctx.expect_revert("bob cannot claim a refund twice", "bob", "claim_refund", cid, match="no unclaimed")
+    ctx.expect_revert("a stranger cannot claim a refund", "mallory", "claim_refund", cid, match="no unclaimed")
+    ctx.claim_payout("cancel: refund", "carol", refund_cid=cid)
     rep.check("refund pool is empty", int(ctx.campaign(cid)["refund_pool"]) == 0, ctx.campaign(cid)["refund_pool"])
     ctx.verify_payouts("cancel and refunds", [cid], before)
 
@@ -961,15 +1088,22 @@ def s_goal_missed(ctx: Ctx) -> None:
         rep.add("SKIP", "goal-missed flow", "needs --long (waits for the one-hour minimum funding window)")
         return
     cid = ctx.launch(goal_units=4, cap_units=8, deadline_offset=HOUR + 5 * 60)
+    before = ctx.snapshot("creator", "bob")
     ctx.expect_ok("bob backs 1 unit", "bob", "back", cid, value=U)
+    bond = int(ctx.campaign(cid)["bond"])
     deadline = int(ctx.campaign(cid)["funding_deadline"])
     ctx.expect_revert("too early to close", "mallory", "close_funding", cid, match="still open")
     ctx.B.wait_until(deadline + 90, rep)
+    vault0 = ctx.vault_balance()
     ctx.expect_ok("close after the deadline", "mallory", "close_funding", cid)
+    ctx.no_gen_moved("close_funding", vault0)                         # failing the campaign only credits the bond
+    ctx.owe("creator", bond)
     c = ctx.campaign(cid)
     rep.check("campaign failed: goal not met", c["status"] == "failed" and c["fail_reason"] == "goal_not_met", str((c["status"], c["fail_reason"])))
-    ctx.expect_ok("bob claims the refund", "bob", "claim_refund", cid)
+    ctx.claim_payout("goal missed: bond", "creator")
+    ctx.claim_payout("goal missed: refund", "bob", refund_cid=cid)
     rep.check("refund pool is empty", int(ctx.campaign(cid)["refund_pool"]) == 0, ctx.campaign(cid)["refund_pool"])
+    ctx.verify_payouts("goal missed", [cid], before)
 
 
 SCENARIOS: dict[str, Callable[[Ctx], None]] = {
@@ -1027,9 +1161,9 @@ def setup_accounts(backend: Backend, rep: Report, fund_gen: int, unit: int) -> d
 
 
 def run(backend: Backend, only: Optional[list], long_mode: bool, llm_retries: int, fund_gen: int, unit: int,
-        echo: bool = True) -> Report:
+        echo: bool = True, payout_wait: int = 900) -> Report:
     rep = Report(echo=echo)
-    ctx = Ctx(B=backend, rep=rep, unit=unit, llm_retries=llm_retries, long_mode=long_mode)
+    ctx = Ctx(B=backend, rep=rep, unit=unit, llm_retries=llm_retries, long_mode=long_mode, payout_wait=payout_wait)
     try:
         ctx.accts = setup_accounts(backend, rep, fund_gen, unit)
         if rep.counts()["FAIL"]:
@@ -1064,6 +1198,8 @@ def main(argv: Optional[list] = None) -> int:
     parser.add_argument("--fund-gen", type=int, default=100, help="GEN to request per account from the faucet")
     parser.add_argument("--unit-gen", type=float, default=1.0, help="size of one 'unit' of money in GEN")
     parser.add_argument("--wait", type=int, default=900, help="seconds to wait for one transaction")
+    parser.add_argument("--payout-wait", type=int, default=900,
+                        help="seconds to wait, after a claim_payout is finalized, for the transfer to reach the wallet")
     args = parser.parse_args(argv)
 
     only = [s.strip() for s in args.only.split(",") if s.strip()] or None
@@ -1087,7 +1223,8 @@ def main(argv: Optional[list] = None) -> int:
               "Check that this machine can reach it (a Codespace can; a restricted sandbox cannot), "
               "or pass --rpc / PP_RPC.", file=sys.stderr)
         return 3
-    rep = run(backend, only, args.long, args.llm_retries, args.fund_gen, int(args.unit_gen * GEN))
+    rep = run(backend, only, args.long, args.llm_retries, args.fund_gen, int(args.unit_gen * GEN),
+              payout_wait=args.payout_wait)
     print(rep.summary())
     rep.write_json(REPORT_PATH, {"network": args.network, "rpc": backend.rpc})
     print(f"report: {REPORT_PATH}")

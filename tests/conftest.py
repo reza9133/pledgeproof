@@ -9,6 +9,10 @@ VM. It has no real chain behind it, so this file adds the missing pieces:
 * a transfer recorder -- external (EVM) value transfers are captured, so tests can
   assert exactly who was paid what, and a running contract balance lets
   every test check that the vault is always exactly solvent.
+
+The vault uses a pull-payment model: nothing but ``claim_payout`` ever emits a
+transfer. ``Chain.tx`` therefore fails any test in which another method emits
+one, and ``Chain.claim`` / ``Chain.claim_all`` are the way tests collect money.
 * a clock -- ``Chain.set_time`` moves the transaction timestamp the
   contract reads from ``gl.message_raw``.
 * web / LLM mock helpers that can be re-pointed between calls.
@@ -53,6 +57,7 @@ class Chain:
         self.received = {}               # address -> total GEN sent to it by the contract
         self.transfers = []              # committed (address, amount) in order
         self._pending = []
+        self._last_method = None
         self.now = T0
         self.hold_transfers = False      # True: emitted transfers wait until deliver() / lose()
         self.undelivered = []            # emitted but not (yet) landed: (address, amount)
@@ -98,6 +103,7 @@ class Chain:
         """Send a transaction. On revert, roll everything back and re-raise."""
         snapshot = self.vm.snapshot()
         self._pending = []
+        self._last_method = method
         self.vm.value = int(value)
         try:
             with self.vm.prank(sender):
@@ -109,6 +115,9 @@ class Chain:
             raise
         self.vm.value = 0
         self.balance += int(value)
+        assert method == "claim_payout" or not self._pending, (
+            f"{method} emitted a transfer: only claim_payout may move GEN out of the vault"
+        )
         for address, amount in self._pending:
             if self.hold_transfers:
                 self.undelivered.append((address, amount))
@@ -120,6 +129,25 @@ class Chain:
             "wallets must be paid with an external (EVM) message, not an internal contract message"
         )
         return result
+
+    def credit(self, who) -> int:
+        """What ``who`` could pull out right now with ``claim_payout``."""
+        return int(self.view("get_credit", str(who)))
+
+    def claim(self, who):
+        """The beneficiary pulls everything credited to them. Returns the amount credited."""
+        credit = int(self.view("get_credit", str(who)))
+        self.tx(who, "claim_payout")
+        return credit
+
+    def claim_all(self, people, names=None):
+        """Every listed person with credit calls ``claim_payout``. Returns {name: amount}."""
+        out = {}
+        for name in (names or list(people)):
+            who = people[name]
+            if int(self.view("get_credit", str(who))) > 0:
+                out[name] = self.claim(who)
+        return out
 
     def _land(self, address, amount):
         self.balance -= amount
@@ -254,7 +282,10 @@ def submit(chain, people, cid=0, url=PROOF_URL, body="The alpha build is live an
 
 
 def solvency_check(chain, cid=0, extra_open_pool=0):
-    """The vault must hold exactly what it owes -- never more, never less."""
+    """The vault must hold exactly what it owes -- never more, never less.
+
+    It owes the campaign's locked money plus every credit that has not been claimed yet.
+    """
     c = chain.view("get_campaign", cid)
     raised, released, bond = int(c["raised"]), int(c["released"]), int(c["bond"])
     status = c["status"]
@@ -266,4 +297,8 @@ def solvency_check(chain, cid=0, extra_open_pool=0):
         owed = 0
     else:  # failed / cancelled
         owed = int(c["refund_pool"]) + bond
-    assert chain.balance == owed + extra_open_pool, (status, chain.balance, owed)
+    acc = chain.view("get_accounting")
+    credits = int(acc["total_credits"])
+    assert chain.balance == owed + extra_open_pool + credits, (status, chain.balance, owed, credits)
+    assert int(acc["accounted"]) == int(acc["locked_total"]) + credits
+    assert acc["solvent"] is True

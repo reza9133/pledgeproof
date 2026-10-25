@@ -40,14 +40,22 @@ class Model:
         self.submitted_at = [0] * len(steps)
         self.attempts = [0] * len(steps)
         self.balance = bond
+        self.credit = {}          # claimable per address: nothing is sent until claim_payout
         self.paid = {}
         self.backers = 0          # counts backers; claims after a failure do not reduce it
 
     # -- helpers
-    def send(self, who, amount):
+    def give(self, who, amount):
+        """Credit ``amount`` to ``who``: the GEN stays in the vault until they claim it."""
         if amount > 0:
-            self.balance -= amount
-            self.paid[who] = self.paid.get(who, 0) + amount
+            self.credit[who] = self.credit.get(who, 0) + amount
+
+    def payout(self, who):
+        self.need(self.credit.get(who, 0) > 0)
+        amount = self.credit[who]
+        self.credit[who] = 0
+        self.balance -= amount
+        self.paid[who] = self.paid.get(who, 0) + amount
 
     def eff_due(self):
         return max(self.dues[self.next], self.current_since + GRACE, self.cure_until)
@@ -73,13 +81,13 @@ class Model:
         self.pledges[who] = 0
         self.backers -= 1
         self.raised -= amount
-        self.send(who, amount)
+        self.give(who, amount)
 
     def end_without_fault(self, status):
         self.status = status
         self.pool = self.weight = self.raised
         bond, self.bond = self.bond, 0
-        self.send(self.creator, bond)
+        self.give(self.creator, bond)
 
     def cancel(self, who, now):
         self.need(who == self.creator and self.status == "funding")
@@ -119,7 +127,7 @@ class Model:
                 self.status = "completed"
                 payout += self.bond
                 self.bond = 0
-            self.send(self.creator, payout)
+            self.give(self.creator, payout)
         else:
             self.mstate[i] = "open"
             if decision == "strike":
@@ -150,7 +158,7 @@ class Model:
         self.pool -= share
         self.weight -= pledge
         self.pledges[who] = 0
-        self.send(who, share)
+        self.give(who, share)
 
 
 @pytest.mark.parametrize("seed", range(SEEDS))
@@ -204,13 +212,16 @@ def test_contract_matches_the_reference_model(chain, people, seed):
         assert chain.balance == model.balance, (chain.balance, model.balance)
         for who in everyone:
             assert chain.paid_to(who) == model.paid.get(str(who), 0)
+            assert chain.credit(who) == model.credit.get(str(who), 0)
+        acc = chain.view("get_accounting")
+        assert int(acc["total_credits"]) == sum(model.credit.values())
         solvency_check(chain)
 
     for _ in range(70):
         now = chain.now
         who = rng.choice(funders)
         action = rng.choice(["back", "back", "withdraw", "cancel", "close", "submit", "submit", "review", "review",
-                             "review", "default", "claim", "claim", "time", "time", "time"])
+                             "review", "default", "claim", "claim", "payout", "payout", "time", "time", "time"])
         if action == "back":
             value = rng.randint(1, max(1, goal))
             run(lambda: model.back(str(who), value, now), who, "back", 0, value=value)
@@ -245,6 +256,9 @@ def test_contract_matches_the_reference_model(chain, people, seed):
             run(lambda: model.default(now), who, "declare_default", 0)
         elif action == "claim":
             run(lambda: model.claim(str(who)), who, "claim_refund", 0)
+        elif action == "payout":
+            sender = rng.choice([creator, who])
+            run(lambda: model.payout(str(sender)), sender, "claim_payout")
         else:
             chain.advance(rng.choice([1, HOUR - 1, HOUR, DAY, 3 * DAY, 3 * DAY + 1, 9 * DAY]))
 
@@ -261,4 +275,6 @@ def test_contract_matches_the_reference_model(chain, people, seed):
         run(lambda: model.claim(str(who)) if model.pledges.get(str(who), 0) > 0 else (_ for _ in ()).throw(Refused()),
             who, "claim_refund", 0)
     assert model.status in ("completed", "failed", "cancelled")
+    for who in funders + [creator]:                                  # everybody pulls what they are owed
+        run(lambda: model.payout(str(who)), who, "claim_payout")
     assert chain.balance == 0 and model.balance == 0, "money was left stranded in the vault"

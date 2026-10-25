@@ -165,6 +165,8 @@ export async function write(fn, args = [], value = 0n, onHash) {
   return { hash, receipt, unconfirmed: o.ok === null, finalized };
 }
 
-// Payment evidence for a campaign: the vault's own payout ledger (what was emitted, and whether its balance proved it left).
-export const payouts = (id) => read("list_payouts", [BigInt(id), 0n, 100n]);
-export const ledger = () => read("get_ledger", []);
+// Pull payments: the contract only credits money; the beneficiary collects it with claim_payout.
+// Credit log of a campaign (why somebody became entitled to what), one address's claimable credit, and the vault's books.
+export const credits = (id) => read("list_credits", [BigInt(id), 0n, 100n]);
+export const creditOf = (owner) => read("get_credit", [owner]);
+export const accounting = () => read("get_accounting", []);

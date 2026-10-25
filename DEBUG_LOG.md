@@ -55,3 +55,15 @@ Round 4 was written without network access and without the GenVM test runner.
 Still not done: a new `scripts/live_e2e.py` run on Studionet. The corrected
 mechanism, `self.balance` against real consensus, and the recipient balance
 changes remain unverified until `artifacts/MANIFEST.md` comes from that run.
+
+## Round 6 (pull payments)
+
+| # | Severity | Finding | Change |
+|---|---|---|---|
+| 19 | High | The live Studionet run (184 tests passed) still showed the vault balance unchanged after review and approval: transfers emitted inside consensus / non-deterministic transactions did not take effect. | Pull-payment model (as in Sieve): consensus transactions only credit an internal ledger; `claim_payout` is a small deterministic call that debits the credit and emits the single transfer. |
+| 20 | Medium | The payout ledger (`reconcile_payouts`, `retry_payout`, `held`, `inflight_total`) existed only to cope with push payments. | Removed, with `get_ledger`, `list_payouts`, `get_payout`. Added `get_credit`, `get_accounting`, `list_credits`, `get_credit_entry` and `locked_total`/`total_credits`/`total_claimed`. |
+| 21 | Medium | `live_e2e.py` asserted payments inside the review transaction. | After each approved milestone and each failed/cancelled campaign the beneficiary claims; the script checks that no GEN moved in the consensus transaction, the credit is debited at once, the wallet grows after FINALIZED, and the vault balance equals `locked_total + total_credits`. |
+
+Open: a new live run is still needed. Refunds are two steps (`claim_refund`,
+then `claim_payout`). A claim whose external message never runs cannot be
+re-sent.

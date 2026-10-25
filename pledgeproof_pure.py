@@ -32,8 +32,6 @@ MIN_QUOTE_CHARS = 12
 MIN_QUOTE_FRAGMENT_CHARS = 6            # each piece of an "..."-elided quote must be this long
 MAX_PLAN_JSON_CHARS = 10_000            # a milestone plan is never longer than this
 MAX_CURED_REVIEWS = 3                   # reviews of one milestone that extend the creator's deadline
-PAYOUT_PATIENCE_SECONDS = 3 * 86_400    # an emitted transfer that has not landed after this long may be re-sent
-MAX_RECONCILE_BATCH = 50                # payout records examined by one reconcile call
 
 VERDICT_MET = "met"
 VERDICT_NOT_MET = "not_met"
@@ -120,51 +118,6 @@ def refund_share(pledge: int, pool_left: int, weight_left: int) -> int:
     if pool_left < 0:
         raise PlanError("refund pool must not be negative")
     return (pledge * pool_left) // weight_left
-
-
-# ---------------------------------------------------------------------------
-# Payout ledger
-# ---------------------------------------------------------------------------
-#
-# An emitted transfer is fire-and-forget: the contract cannot see whether it
-# was delivered. The contract therefore keeps every outgoing payment on a
-# ledger until the contract's own balance proves it left:
-#
-#   held           = every wei the contract has received and not yet *proven* paid out
-#   inflight_total = sum of the payouts that were emitted and are not yet proven
-#   landed         = held - balance        (what has really left the contract)
-#
-# Proof is deliberately conservative. Stray deposits can only make ``balance``
-# larger, which makes ``landed`` smaller, so a payout is never declared
-# delivered too early. A payout is only re-sent while *nothing* has landed
-# (``balance >= held``), so a duplicate can never be funded from other
-# people's money.
-
-PAYOUT_IDLE = "idle"                    # nothing is in flight
-PAYOUT_ALL_LANDED = "all_landed"        # every in-flight payout has left the contract
-PAYOUT_NONE_LANDED = "none_landed"      # nothing has left the contract yet
-PAYOUT_PARTIAL = "partial"              # some value left; which payout it was cannot be told
-
-
-def payout_state(held: int, balance: int, inflight_total: int) -> str:
-    """Classify the in-flight payouts from the contract's own balance."""
-    held, balance, inflight_total = int(held), int(balance), int(inflight_total)
-    if held < 0 or balance < 0 or inflight_total < 0 or inflight_total > held:
-        raise PlanError("payout ledger is inconsistent")
-    if inflight_total == 0:
-        return PAYOUT_IDLE
-    landed = max(0, held - balance)
-    if landed >= inflight_total:
-        return PAYOUT_ALL_LANDED
-    if landed == 0:
-        return PAYOUT_NONE_LANDED
-    return PAYOUT_PARTIAL
-
-
-def may_resend(held: int, balance: int, last_sent_at: int, now: int,
-               patience: int = PAYOUT_PATIENCE_SECONDS) -> bool:
-    """A payout may be emitted again only after the patience window and while nothing has landed."""
-    return int(balance) >= int(held) and int(now) >= int(last_sent_at) + int(patience)
 
 
 # ---------------------------------------------------------------------------

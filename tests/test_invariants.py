@@ -1,5 +1,6 @@
 """Randomised end-to-end runs: whatever sequence of actions happens, the vault
-must always hold exactly what it owes and, once everyone has been paid, nothing."""
+must always hold exactly what it owes (locked campaign money plus unclaimed credits)
+and, once everyone has claimed, nothing."""
 import random
 
 import pytest
@@ -41,7 +42,7 @@ def test_random_histories_stay_solvent(chain, people, seed):
     for step in range(60):
         status = chain.view("get_campaign", 0)["status"]
         action = rng.choice(["back", "back", "withdraw", "close", "submit", "review", "review", "default",
-                             "claim", "time", "time"])
+                             "claim", "payout", "payout", "time", "time"])
         who = rng.choice(funders)
         if action == "back":
             if attempt(who, "back", 0, value=rng.randint(1, max(1, goal))):
@@ -63,6 +64,8 @@ def test_random_histories_stay_solvent(chain, people, seed):
             attempt(who, "declare_default", 0)
         elif action == "claim":
             attempt(who, "claim_refund", 0)
+        elif action == "payout":
+            attempt(rng.choice([creator, who]), "claim_payout")
         else:
             chain.advance(rng.choice([HOUR, DAY, 5 * DAY]))
 
@@ -78,5 +81,12 @@ def test_random_histories_stay_solvent(chain, people, seed):
     for funder in funders:
         attempt(funder, "claim_refund", 0)
     solvency_check(chain)
+    for who in funders + [creator]:                  # everybody pulls what they are owed
+        if chain.credit(who) > 0:
+            assert attempt(who, "claim_payout")
+        else:
+            chain.reverts(who, "claim_payout", match="nothing to claim")
+    acc = chain.view("get_accounting")
+    assert acc["total_credits"] == "0" and acc["locked_total"] == "0", acc
     assert chain.balance == 0, "money was left stranded in the vault"
     assert sum(chain.received.values()) == paid_in, "money was created or destroyed"

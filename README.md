@@ -306,40 +306,42 @@ the addresses to fund by hand in [Studio](https://studio.genlayer.com).
 To host proof pages yourself, set `PP_PAGE_CMD` to a command that takes a file
 path and prints a public `https://` URL.
 
-## Payout ledger (payments that do not arrive)
+## Payments: pull, never push
 
-Campaign books are cleared when a payment is requested (pledge zeroed, tranche
-released, bond released). To keep a failed delivery from erasing anyone's
-entitlement, every payment is also written to `payouts`:
+No transaction that takes part in consensus sends GEN. `review`, `close_funding`,
+`cancel_campaign`, `declare_default`, `withdraw_pledge` and `claim_refund` only
+**credit** an internal ledger; the beneficiary then collects it with `claim_payout`.
 
 | piece | meaning |
 |---|---|
-| `held` | everything the contract received and has not yet *proven* paid out |
-| `inflight_total` | payments emitted and not yet proven |
-| `get_ledger()` | `held`, `inflight_total`, the contract's own `balance` and a state: `idle`, `all_landed`, `none_landed`, `partial` |
-| `reconcile_payouts(max)` | anyone; marks payments `settled` only when the balance proves **all** in-flight payments left |
-| `retry_payout(id)` | emits a payment again, only after 3 days **and** while nothing at all has left the contract |
-| `list_payouts(cid, start, limit)` / `get_payout(id)` | per-campaign evidence for the UI and the manifest |
+| `credits[address]` | what an address can take out now (tranches, bond, refunds, withdrawn pledges, across all campaigns) |
+| `claim_payout()` | deterministic: debits the caller's whole credit and emits one transfer to the caller's wallet. The only method that moves GEN out |
+| `claim_refund(cid)` | step 1 for a backer of a failed or cancelled campaign: moves their pro-rata share onto their credit. Step 2 is `claim_payout` |
+| `get_credit(owner)` | claimable amount of one address |
+| `get_accounting()` | `locked_total`, `total_credits`, `total_claimed`, `balance`, `unallocated`, `solvent` |
+| `list_credits(cid, start, limit)` / `get_credit_entry(id)` | append-only credit log: who became entitled to what, and why |
 
-Why it is conservative: a re-send is only possible while `balance >= held`, so a
-second transfer can never be paid from other people's money; stray deposits only
-make the contract look *less* delivered, never more. If some but not all
-payments landed (`partial`) the balance cannot say which one, so nothing is
-settled or re-sent until the picture is clear. `held == balance` after
-`reconcile_payouts` is the invariant the live script checks.
+The transfer of a claim is an external message, so it runs when the claim is
+**finalized**: the credit is gone as soon as the call is accepted, the vault's
+balance drops at finalization. Once every claim is finalized,
+`balance == locked_total + total_credits` (the invariant the live script checks).
 
-Not verified here: `self.balance` (read by `_balance()`) and the transfer call
-were written against the GenLayer SDK from memory and could not be run in the
-sandbox this change was made in. Run the Direct Mode suite and a live run.
+Trade-off: there is no re-send. If the external message of a claim never ran,
+the credit is already debited. `get_accounting` shows it as `unallocated`
+or `shortfall`, but the contract cannot repair it.
+
+Not verified here: the contract has only been run in Direct Mode. A new live
+run on Studionet (`artifacts/MANIFEST.md`: credits, claims and balance
+reconciliation) is the proof that the transfer arrives.
 
 ## Evidence
 
 `python scripts/live_e2e.py` writes, next to `live_report.json`:
 
 * `artifacts/manifest.json` and `artifacts/MANIFEST.md`: deployment tx, every
-  transaction with its status now, the vault's outgoing payouts, and each
-  recipient's balance before/after against what they sent in and were paid;
-* hard failures (not warnings) when a payout is not `settled` after finalization
+  transaction with its status now, the credit log, every `claim_payout`, and each
+  recipient's balance before/after against what they sent in and pulled;
+* hard failures (not warnings) when a claim does not reach the wallet after finalization
   or a recipient balance does not match.
 
 ## Limits and honest caveats
@@ -367,11 +369,6 @@ sandbox this change was made in. Run the Direct Mode suite and a live run.
   run on finalization, never earlier. The corrected contract has **not** been
   run on Studionet yet: `artifacts/MANIFEST.md` from a new live run (every payout
   `settled`, every recipient balance matching) is still the proof of delivery.
-* `retry_payout` re-sends only after a 3-day patience window and only while the
-  vault's balance shows nothing has left. If the transaction that emitted the
-  first message had still not finalized after three days (its external message
-  runs at finalization), a re-send could pay twice, out of other people's
-  money. Finalize pending transactions before retrying.
 * Proof pages must be plain public `https://` URLs on a domain name. A public
   domain that merely *resolves* to a private address cannot be detected by
   string checks; the validators' own fetch sandbox is the defence there.
