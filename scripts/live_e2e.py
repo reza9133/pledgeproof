@@ -623,6 +623,9 @@ class Ctx:
     txs: list = field(default_factory=list)                 # manifest: every transaction
     payout_rows: list = field(default_factory=list)         # manifest: credit-log entries and balance evidence
     claim_rows: list = field(default_factory=list)          # manifest: every claim_payout with its evidence
+    refused_value: int = 0                      # wei attached to transactions the chain refused (may stay in the vault)
+    refused_at_last: int = 0                    # refused_value when the books were last reconciled
+    last_unallocated: int = 0                   # vault balance above locked + credits at the last reconciliation
 
     # -- chain helpers ----------------------------------------------------------
     def view(self, fn: str, *args) -> Any:
@@ -640,6 +643,8 @@ class Ctx:
         self.last_tx = tx
         if tx.ok is not False and value:
             self.sent_in[who] = self.sent_in.get(who, 0) + int(value)
+        elif tx.ok is False and value:
+            self.refused_value += int(value)                # a refused payable call may leave its value in the vault
         self.txs.append({"n": len(self.txs) + 1, "scenario": self.rep.scenario, "fn": fn, "from": self.accts[who].address,
                          "who": who, "value_wei": int(value), "tx_hash": tx.tx_hash, "ok": tx.ok,
                          "status_when_accepted": tx.status, "error": tx.error,
@@ -735,27 +740,41 @@ class Ctx:
         self.B.settle(tx, self.rep)
 
     def reconcile_books(self, name: str) -> None:
-        """Wait until the vault's real balance equals what it owes, then check that it does.
+        """Check the vault's real balance against its books, allowing only GEN the script itself explains.
 
-        Right after a claim the GEN has not left yet (``unallocated``); once the claim is finalized the
-        real balance must equal ``locked_total + total_credits``. Anything else is a hard failure.
+        ``unallocated = real balance - (locked_total + total_credits)``. On a live chain the value attached
+        to a *refused* payable call can stay in the vault (the contract never owed it to anybody, so it
+        is not in the books). The check therefore does not demand ``unallocated == 0``; it demands:
+
+        * the vault holds at least what it owes (no shortfall);
+        * ``unallocated`` never shrinks (a claim or credit must not eat unowed money) and grows only by
+          the value of refused payable calls sent since the last check (nothing else may add GEN);
+        * after a claim is finalized its transfer has left the vault: that is the same condition, because a
+          claim that has not run yet would leave ``unallocated`` too high.
         """
         rep = self.rep
         end = time.time() + self.payout_wait
-        acc = self.accounting()
+        lo = self.last_unallocated
+        hi = lo + (self.refused_value - self.refused_at_last)
         while True:
             acc = self.accounting()
             real = self.vault_balance()
-            if real == int(acc["accounted"]) or time.time() >= end:
+            unalloc = real - int(acc["accounted"])
+            if lo <= unalloc <= hi or time.time() >= end:
                 break
             time.sleep(10)
         real = self.vault_balance()
+        unalloc = real - int(acc["accounted"])
         rep.info(f"{name}: books", json.dumps(acc))
-        rep.check(f"{name}: the vault is solvent", acc["solvent"] is True, json.dumps(acc))
-        rep.check(f"{name}: the vault's real balance equals locked + credits", real == int(acc["accounted"]),
-                  f"real balance {real}, locked_total {acc['locked_total']} + total_credits {acc['total_credits']}")
+        rep.info(f"{name}: unallocated {unalloc} wei (allowed between {lo} and {hi}; refused payable calls so far: {self.refused_value})")
+        rep.check(f"{name}: the vault is solvent", acc["solvent"] is True and real >= int(acc["accounted"]), json.dumps(acc))
+        rep.check(f"{name}: no unexplained GEN appeared or disappeared (real balance vs locked + credits)", lo <= unalloc <= hi,
+                  f"real balance {real}, locked_total {acc['locked_total']} + total_credits {acc['total_credits']} = {acc['accounted']}; "
+                  f"unallocated {unalloc} is outside [{lo}, {hi}]")
         rep.check(f"{name}: the contract's own balance view matches the RPC balance",
                   acc["balance"] == "" or int(acc["balance"]) == real, f"view {acc['balance']} vs rpc {real}")
+        self.last_unallocated = unalloc
+        self.refused_at_last = self.refused_value
 
     def verify_payouts(self, name: str, cids: list, before: dict) -> None:
         """Scenario-level reconciliation, after every beneficiary has claimed.
