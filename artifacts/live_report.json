@@ -13,31 +13,31 @@
   "results": [
     {
       "scenario": "accounts and funding",
-      "name": "creator 0x06Dd57F7d9F2e803cDF592D000aa4bbAd6dABaFC funded",
+      "name": "creator 0xb3fFe00357bc4e3Ee4d81da0716AA418a929f20e funded",
       "status": "PASS",
       "detail": ""
     },
     {
       "scenario": "accounts and funding",
-      "name": "bob 0x43e924170eE78C5FbeA7308426AF282446765155 funded",
+      "name": "bob 0x4343366eD1F1B3f1556a052eCD6a91fb1CA144A0 funded",
       "status": "PASS",
       "detail": ""
     },
     {
       "scenario": "accounts and funding",
-      "name": "carol 0x265A49E2127aEf31B8E0Bc563599582319b188c1 funded",
+      "name": "carol 0x2a1266c653208108FcbC34f4B3D5e555A66770D2 funded",
       "status": "PASS",
       "detail": ""
     },
     {
       "scenario": "accounts and funding",
-      "name": "mallory 0x64ae52284714Bdc5565AbDfAF6220025Cc39F782 funded",
+      "name": "mallory 0x8c92629E06cdd24Ff48968fDA9e498dD3c119e57 funded",
       "status": "PASS",
       "detail": ""
     },
     {
       "scenario": "deploy",
-      "name": "PledgeVault deployed at 0x61BcF2B2Ed688119d5c06551c092C0Be79879A45",
+      "name": "PledgeVault deployed at 0xB639f26D6fE796F7D418F88D1E46a9cebeBA0886",
       "status": "PASS",
       "detail": ""
     },
@@ -585,7 +585,7 @@
       "scenario": "happy path: two milestones, bond returned",
       "name": "proof page hosted",
       "status": "INFO",
-      "detail": "https://paste.rs/YYg7a"
+      "detail": "https://paste.rs/tLj4j"
     },
     {
       "scenario": "happy path: two milestones, bond returned",
@@ -603,7 +603,7 @@
       "scenario": "happy path: two milestones, bond returned",
       "name": "milestone 1, try 1",
       "status": "INFO",
-      "detail": "state=passed verdict=met confidence=100 attempts=1 reason='The page shows a public changelog with three distinct released changes, each with a version number, satisfying the acceptance criteria.'"
+      "detail": "state=passed verdict=met confidence=97 attempts=1 reason='The page explicitly shows a public changelog with three released changes, and each change includes a version number. This matches the acceptance criteria exactl'"
     },
     {
       "scenario": "happy path: two milestones, bond returned",
@@ -699,7 +699,7 @@
       "scenario": "happy path: two milestones, bond returned",
       "name": "proof page hosted",
       "status": "INFO",
-      "detail": "https://paste.rs/SsAS5"
+      "detail": "https://paste.rs/86kD1"
     },
     {
       "scenario": "happy path: two milestones, bond returned",
@@ -717,7 +717,7 @@
       "scenario": "happy path: two milestones, bond returned",
       "name": "milestone 2, try 1",
       "status": "INFO",
-      "detail": "state=passed verdict=met confidence=98 attempts=1 reason='The page includes a release note with a title, a release date, and three bullet-style feature items describing shipped features. This matches all stated accepta'"
+      "detail": "state=passed verdict=met confidence=97 attempts=1 reason='The page contains a release note with a title, a release date of 14 March 2027, and three bullet points describing shipped features, satisfying all parts of the'"
     },
     {
       "scenario": "happy path: two milestones, bond returned",
@@ -957,7 +957,7 @@
       "scenario": "page without the proof token",
       "name": "proof page hosted",
       "status": "INFO",
-      "detail": "https://paste.rs/oT6wJ"
+      "detail": "https://paste.rs/ODiwN"
     },
     {
       "scenario": "page without the proof token",
@@ -1077,7 +1077,7 @@
       "scenario": "page with another milestone's token",
       "name": "proof page hosted",
       "status": "INFO",
-      "detail": "https://paste.rs/Fu5Jj"
+      "detail": "https://paste.rs/eH225"
     },
     {
       "scenario": "page with another milestone's token",
@@ -1155,7 +1155,7 @@
       "scenario": "promises and a roadmap are not delivery",
       "name": "proof page hosted",
       "status": "INFO",
-      "detail": "https://paste.rs/oEgx1"
+      "detail": "https://paste.rs/6Sbm2"
     },
     {
       "scenario": "promises and a roadmap are not delivery",
@@ -1173,7 +1173,7 @@
       "scenario": "promises and a roadmap are not delivery",
       "name": "verdict",
       "status": "INFO",
-      "detail": "state=open verdict=not_met confidence=95 attempts=1 reason='The page only promises a future public changelog and three released versions, but does not display any changelog entries or version numbers, so the acceptance c'"
+      "detail": "state=open verdict=not_met confidence=95 attempts=1 reason=\"The submitted page is a roadmap announcing future plans and 'coming soon' items but contains no actual changelog or list of three released changes with version \""
     },
     {
       "scenario": "promises and a roadmap are not delivery",
@@ -1269,7 +1269,7 @@
       "scenario": "prompt injection on the proof page",
       "name": "proof page hosted",
       "status": "INFO",
-      "detail": "https://paste.rs/gDirF"
+      "detail": "https://paste.rs/DOi6z"
     },
     {
       "scenario": "prompt injection on the proof page",
@@ -1287,7 +1287,7 @@
       "scenario": "prompt injection on the proof page",
       "name": "verdict",
       "status": "INFO",
-      "detail": "state=open verdict=not_met confidence=90 attempts=1 reason='The page contains no changelog, no released changes, and no version numbers; it only has a prompt-injection-style notice attempting to manipulate the reviewer, '"
+      "detail": "state=open verdict=not_met confidence=100 attempts=1 reason='The provided page contains only an instruction to the reviewer and no content related to a public changelog listing released changes with version numbers.'"
     },
     {
       "scenario": "prompt injection on the proof page",
@@ -1383,7 +1383,7 @@
       "scenario": "unrelated page that carries the token",
       "name": "proof page hosted",
       "status": "INFO",
-      "detail": "https://paste.rs/aqsKu"
+      "detail": "https://paste.rs/vITQ7"
     },
     {
       "scenario": "unrelated page that carries the token",
@@ -1401,7 +1401,7 @@
       "scenario": "unrelated page that carries the token",
       "name": "verdict",
       "status": "INFO",
-      "detail": "state=open verdict=not_met confidence=90 attempts=1 reason='The page is a pancake recipe with a verification token and contains no changelog, version numbers, or any content related to the telescope project or released c'"
+      "detail": "state=open verdict=not_met confidence=99 attempts=1 reason='The page contains a pancake recipe and a verification token, not a public changelog. It does not show at least three released changes or any version numbers, so'"
     },
     {
       "scenario": "unrelated page that carries the token",

@@ -1,145 +1,143 @@
 # Live run manifest
 
 * network: `studionet`  rpc: `https://studio.genlayer.com/api`
-* contract: `0x61BcF2B2Ed688119d5c06551c092C0Be79879A45`
-* deployment tx: `0x4a958a1a0c4ea2cb206a8972819753962d9f9df06d8cf895153213649ba181c4` (FINALIZED)
+* contract: `0xB639f26D6fE796F7D418F88D1E46a9cebeBA0886`
+* deployment tx: `0x9dd3ca72a30bf7007bf96288a064e5e1a964a99cd9638136e7308830f008bcc4` (FINALIZED)
 
 ## Transactions
 
 | # | scenario | call | from | value (wei) | tx | status now |
 |---|---|---|---|---|---|---|
-| 1 | access control and input validation (no LLM) | `launch_campaign` | creator | 199999999999999999 | `0x58f31ab7a7219e4af7c48ba3893c1c60077f0b102a5703a681696ec60a23c9ef` | FINALIZED |
-| 2 | access control and input validation (no LLM) | `launch_campaign` | creator | 0 | `0xd99d258f90e897079f199460acae9331b5b86d2a14dccac773e4ac969174ed73` | FINALIZED |
-| 3 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0xf161a0b1d490fdab48cf9ab3240cabbe3045407a415d701317f39237888e914b` | FINALIZED |
-| 4 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0x5580a95a2ef93abde01709b055302006a891003b1b7af16b3e650c7516febab0` | FINALIZED |
-| 5 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0x44130d3556a777b0e10f7cde40b185c5b7befa4a3f8089fd78946b82f4f68ec3` | FINALIZED |
-| 6 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0x9cd4829580c7d76e1253f38f855015b9a6e79e21af382aadeb22f5ac5233d257` | FINALIZED |
-| 7 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0x30fd0e55f39cacd8a63fd1c4464360768da7b65b9c929c43c8992c667205ea99` | FINALIZED |
-| 8 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0xdeef3aa85dd4059d1d0813ba150ef5c53f4b32f9c574a54829adfd3012bdc577` | FINALIZED |
-| 9 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0x8df9974110dc64581cef8114bf606bc4ddab409baf5bebe159f00963f517e8bc` | FINALIZED |
-| 10 | access control and input validation (no LLM) | `back` | creator | 1000000000000000000 | `0x5a7076b82e4a0e9ca48e6fd03a30ef622cfe51575b8c641d2d483e91dbd64dc2` | FINALIZED |
-| 11 | access control and input validation (no LLM) | `back` | bob | 500000000000000000 | `0xac67e31b2b27c663346bb32d012599cda742e28cf35fb08bbca1ff76e3cbe6ff` | FINALIZED |
-| 12 | access control and input validation (no LLM) | `cancel_campaign` | mallory | 0 | `0x014a163edc56fd8f8e0b3c66d447c27fdc7a74b0763ee68e5a6a4c7075235020` | FINALIZED |
-| 13 | access control and input validation (no LLM) | `submit_proof` | mallory | 0 | `0xa90349ad8b3e62b962614e415086f0c83df85d6ecd9b3a95b50d999e3fa20a0a` | FINALIZED |
-| 14 | access control and input validation (no LLM) | `close_funding` | mallory | 0 | `0xf3952b64e64584cb255f479d0cd19957d91bb405e3889007dcb18be71697c222` | FINALIZED |
-| 15 | access control and input validation (no LLM) | `withdraw_pledge` | bob | 0 | `0xdff8cb968febfd7d8f741d4b08f92ea4ecd617414730dbec14a062f411ad6d8e` | FINALIZED |
-| 16 | access control and input validation (no LLM) | `claim_refund` | bob | 0 | `0x43ef2dcaa67a11df64fca7cf1c697a60f3c236a2483612fd975aea69dc29b69b` | FINALIZED |
-| 17 | access control and input validation (no LLM) | `claim_payout` | mallory | 0 | `0x51c7f076b7b32bc65f15f04c976b2667f61b0840e64e384e006cac85544cd54c` | FINALIZED |
-| 18 | access control and input validation (no LLM) | `review` | creator | 0 | `0x4d6ab16a62b5fff30a0b26be27ead240dbf79f952b882f6ea49a9dfd807a3142` | FINALIZED |
-| 19 | access control and input validation (no LLM) | `declare_default` | mallory | 0 | `0xd8e8b36b15f884b569524c87bb3be158969aba0136f7e88ec67e464fd6e93c2b` | FINALIZED |
-| 20 | access control and input validation (no LLM) | `back` | bob | 1000000000000000000 | `0xab83da64aef63ca415982db9acc207b68b98789a6eea50fdc6aeaab5af32f445` | FINALIZED |
-| 21 | access control and input validation (no LLM) | `back` | bob | 2000000000000000000 | `0xff9e42f4b9b5563734db4b9122e0659c8f33730d1b5ebf447c93c7498526e570` | FINALIZED |
-| 22 | access control and input validation (no LLM) | `withdraw_pledge` | bob | 0 | `0x67f7bd4903aec9e39cc693210110a6218c6cee29c274d3791b97bb24711197da` | FINALIZED |
-| 23 | access control and input validation (no LLM) | `claim_payout` | bob | 0 | `0x0a0283a76bb490c2530afab432db79f87808c7dbb3a7d13c6b4f44bfb7f53018` | FINALIZED |
-| 24 | access control and input validation (no LLM) | `claim_payout` | bob | 0 | `0x4a23ff6e68a92d46cf820b3890cf6db28ca92fe4ecdabf1b7f68433cead26f93` | FINALIZED |
-| 25 | access control and input validation (no LLM) | `back` | bob | 2000000000000000000 | `0x8de8263ebf5c979345e23663a2bb25fc6ff88cdb9991002bd1a1d0fe0d98710c` | FINALIZED |
-| 26 | access control and input validation (no LLM) | `back` | carol | 2000000000000000000 | `0x0a2478f2e0544edaed9c6825f338e2fd300d00478805a4abe25e13af45b26bf4` | FINALIZED |
-| 27 | access control and input validation (no LLM) | `close_funding` | mallory | 0 | `0x7820ab5026ba88aa9dc9a82c17b50a642cc4a5246845f4fa220cf1c6b27bdfb1` | FINALIZED |
-| 28 | access control and input validation (no LLM) | `back` | carol | 1000000000000000000 | `0x37a6ac1c201e865ca192733669637ce74cd60b99d2b7b4c99105a08b5fbc8d1e` | FINALIZED |
-| 29 | access control and input validation (no LLM) | `cancel_campaign` | creator | 0 | `0x6b8251616edbdfac6eed939eac77108cde979804c148a130c42e2f9ce9ecba7a` | FINALIZED |
-| 30 | access control and input validation (no LLM) | `withdraw_pledge` | bob | 0 | `0x7a6f66fa6de2e03cddb8fc1473695a99d4e872d1270fd3736b2a103f76cfb152` | FINALIZED |
-| 31 | access control and input validation (no LLM) | `review` | creator | 0 | `0xd92577068dd54bfac33a6a388ee101a4045f4762a30ede469f37136184a32f26` | FINALIZED |
-| 32 | access control and input validation (no LLM) | `declare_default` | mallory | 0 | `0x80a2701aa4fd55b0048ab2e3e807624a598fe9fc3ad64eea9a5bbc73e48241f9` | FINALIZED |
-| 33 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0xeffdfff940adf4e7e38dda8c24e1a9ae3032ac30cfcb4fa123540b640b0ee168` | FINALIZED |
-| 34 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0xff8b0b81c9b93347f2b8e684a4f0f0cea1f9efd65622095d0ab6b8a3809a466b` | FINALIZED |
-| 35 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0x09b6f0f1febc7d11b4f3b6a8237aa6b00c9fb8c764f3c72e553e2d759a88730a` | FINALIZED |
-| 36 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0x61c2d517f74542e6d7c4566d9db7d00f5105f78c62559df4fad68b068e65eeae` | FINALIZED |
-| 37 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0xee91197b8ea8cec017deb144a4aabde5d75967cfe79782f55db52ac754dd6894` | FINALIZED |
-| 38 | happy path: two milestones, bond returned | `launch_campaign` | creator | 200000000000000000 | `0x1b64b56d8d0a8edac7ea9cb67496fb8b7e92c4fed1a42796f9d846119308fb7b` | FINALIZED |
-| 39 | happy path: two milestones, bond returned | `back` | bob | 2000000000000000000 | `0xbdf177c41d7783ed586f451454f2a6def500856897b6ca0b2c815cc4803d26bb` | FINALIZED |
-| 40 | happy path: two milestones, bond returned | `back` | carol | 2000000000000000000 | `0x2b7a8e6baa16d44bba76b44c73c95e5a2d9b86a23070854e193d45f21fbe7f0d` | FINALIZED |
-| 41 | happy path: two milestones, bond returned | `close_funding` | mallory | 0 | `0x29cb4427a2b222ce0a46ea0aa947173205f93b5987f4239b4ec174732593a613` | FINALIZED |
-| 42 | happy path: two milestones, bond returned | `submit_proof` | creator | 0 | `0x23c7b97235d94878258f62035da7bcc8b1586abb9137764332b3a793015d75c6` | FINALIZED |
-| 43 | happy path: two milestones, bond returned | `review` | creator | 0 | `0x41b340abebeedd5f3ce36c2a06e0a2786ed0303403f2ff40563396f346812cdf` | FINALIZED |
-| 44 | happy path: two milestones, bond returned | `claim_payout` | creator | 0 | `0x21cb3ec9ecbb7cf3badf1e06bbeed9448fba7ec0efe1d276dc9619509a24a3f3` | FINALIZED |
-| 45 | happy path: two milestones, bond returned | `claim_payout` | creator | 0 | `0x556a10ff18186aa82759558446b4275282d052b739ff8309e18ae03ff0dfde6b` | FINALIZED |
-| 46 | happy path: two milestones, bond returned | `submit_proof` | creator | 0 | `0x7b5295c9879913559d67de816b9ad9999ce92aa5eac36e5cffa9689a9214feda` | FINALIZED |
-| 47 | happy path: two milestones, bond returned | `review` | creator | 0 | `0x6141531e9dfc9efb911d7d704425e7398fe3adec7cc2c30f9004688794ad00bd` | FINALIZED |
-| 48 | happy path: two milestones, bond returned | `claim_payout` | creator | 0 | `0x4d7a8a7edeb747cdb5a8e7c9fd94383fc180594c4af9bf593ac3cfd0fbc58e51` | FINALIZED |
-| 49 | happy path: two milestones, bond returned | `claim_payout` | creator | 0 | `0xc1af0ad067b987d71240e16ce31d1cf58906680bf28d0e88987290acffc1f15f` | FINALIZED |
-| 50 | happy path: two milestones, bond returned | `claim_refund` | bob | 0 | `0xe96b8ce251c2ce4cc85fc4d9de64f187bb89de34da9ab55973cdeeb4edc8161c` | FINALIZED |
-| 51 | page without the proof token | `launch_campaign` | creator | 200000000000000000 | `0xe2115ef5931f0caa50aa6c40430e81de21edb0294bdb1d2280ad7e6562aac70c` | FINALIZED |
-| 52 | page without the proof token | `back` | bob | 2000000000000000000 | `0x627d54ff570b4ccce8ebc2ab6cbf2f0d226c3bead89104c8d1d2e22de39f66ec` | FINALIZED |
-| 53 | page without the proof token | `back` | carol | 2000000000000000000 | `0x7dd0bfb38269543dfee2c80f16041884d94efe00cca12a9c9a4e9b94629b79ba` | FINALIZED |
-| 54 | page without the proof token | `close_funding` | mallory | 0 | `0xfb61944db691f578b2cb5e317e0cb23516fbaed8a628c2e72d147a603ead35de` | FINALIZED |
-| 55 | page without the proof token | `submit_proof` | creator | 0 | `0x905b7ec6586ac647e6e1e7647d530d44316e3fac728bd5bcbeee20327bf42c45` | FINALIZED |
-| 56 | page without the proof token | `review` | creator | 0 | `0x16ccc1453ba0410e5e58da19f35c4dde8c748b8ab93be9827794909aaf70e13f` | FINALIZED |
-| 57 | page without the proof token | `review` | mallory | 0 | `0x75563e1dc42f42e00e5b2f84730bcebf23df860cd71be56b652318d44f8ac83d` | FINALIZED |
-| 58 | page with another milestone's token | `launch_campaign` | creator | 200000000000000000 | `0x34b7c138add93e01720a042202bff665f75619a3f5b3b0c12943228492a0221b` | FINALIZED |
-| 59 | page with another milestone's token | `back` | bob | 2000000000000000000 | `0xcde4ac528338ee55755f3bf90bfb735113b1e24a59d2cbb1a3bc1d41a589708d` | FINALIZED |
-| 60 | page with another milestone's token | `back` | carol | 2000000000000000000 | `0x789460ffec8cb4c4f161adb14666657a5d96631a2678f2e1b683b820bcc7bf1c` | FINALIZED |
-| 61 | page with another milestone's token | `close_funding` | mallory | 0 | `0xf33314e46d3746fe971950c1b52056a56e5593941082c1ec9dbdaab8fdc588de` | FINALIZED |
-| 62 | page with another milestone's token | `submit_proof` | creator | 0 | `0xd1b24683ffe6a274b94d3bcedd63adb3b205c70f721b82c4f47dac32334df6ab` | FINALIZED |
-| 63 | page with another milestone's token | `review` | creator | 0 | `0x7a185ada565f1a964bd45323e4371a79bf50a82bc90de017f8414c83bcd05c2f` | FINALIZED |
-| 64 | promises and a roadmap are not delivery | `launch_campaign` | creator | 200000000000000000 | `0xb9fb4755f4127f48673afdd245eab3b1a7b4b5cf0662724bad4669376ce005dc` | FINALIZED |
-| 65 | promises and a roadmap are not delivery | `back` | bob | 2000000000000000000 | `0x59223c25e440f618318af16bdfa96036049867eb22cd776ef395d40284a796e7` | FINALIZED |
-| 66 | promises and a roadmap are not delivery | `back` | carol | 2000000000000000000 | `0x4b10967895ca46b6883a66ee4bb2a9d7cabfae1a6a3442dbb576008b4bffbb80` | FINALIZED |
-| 67 | promises and a roadmap are not delivery | `close_funding` | mallory | 0 | `0xaec42da721b68238fa64eee47aa022503dacd13a5eb14172077313dbb7b59e50` | FINALIZED |
-| 68 | promises and a roadmap are not delivery | `submit_proof` | creator | 0 | `0xabeff7963ded8608410d2246bce0eef60fbbde15ff2827d8c8046c003000f5ca` | FINALIZED |
-| 69 | promises and a roadmap are not delivery | `review` | creator | 0 | `0x02de20a2ffc55323fedaca52e556d65509f9202d500e9fda0ff390911009e651` | FINALIZED |
-| 70 | promises and a roadmap are not delivery | `review` | mallory | 0 | `0x0547de24f4554937212411d86a19f2bf1cd11d3503705246a5bf2f8567ab71c3` | FINALIZED |
-| 71 | prompt injection on the proof page | `launch_campaign` | creator | 200000000000000000 | `0x3518e94b04807fcd1ff7d926fbdcacada1185aa28543415aa5de08a9aac9bafc` | FINALIZED |
-| 72 | prompt injection on the proof page | `back` | bob | 2000000000000000000 | `0xc482d5f2deafa4c6649bf1ebb5e736371fc001f1a8cd8055cb0f7214298e9291` | FINALIZED |
-| 73 | prompt injection on the proof page | `back` | carol | 2000000000000000000 | `0x1105a82d5d496532f1de7bb47e440c9bae7f875a1a0caaaf584edec69770594f` | FINALIZED |
-| 74 | prompt injection on the proof page | `close_funding` | mallory | 0 | `0x6a1175d4ab93bea2a8d3102fba18d512f0aef69e3caad8ed458f65e93db0f3d1` | FINALIZED |
-| 75 | prompt injection on the proof page | `submit_proof` | creator | 0 | `0x909cb06f864d35cc887b3a98d6ce978f82eb293c0b3705993f1c6c468ebfe3a3` | FINALIZED |
-| 76 | prompt injection on the proof page | `review` | creator | 0 | `0xac22308b2af168608d8f1b04073a27c923ddbde7938b9edfa32cdf077653ef28` | FINALIZED |
-| 77 | prompt injection on the proof page | `review` | mallory | 0 | `0x7975309e792aefe996f48a73e24dba04d7ac50722f5724a908819661d945e577` | FINALIZED |
-| 78 | unrelated page that carries the token | `launch_campaign` | creator | 200000000000000000 | `0x7415c9cacabb56856d682a4efeab2433071bc6ccad575a983465eff2c42f362b` | FINALIZED |
-| 79 | unrelated page that carries the token | `back` | bob | 2000000000000000000 | `0xe07aa8f254cd92ba53661dccf048bd58f43d5f644f762d1ef3831f3824273b37` | FINALIZED |
-| 80 | unrelated page that carries the token | `back` | carol | 2000000000000000000 | `0xa4ab4b9dd6428472119d13a0deac89229fe25f51df18f4ec640f5bf7015cf8fc` | FINALIZED |
-| 81 | unrelated page that carries the token | `close_funding` | mallory | 0 | `0x4a069eaecbba4b369211b2b426071d75eeeda51dcaabf258afd70ccbbd01f101` | FINALIZED |
-| 82 | unrelated page that carries the token | `submit_proof` | creator | 0 | `0x533d64bdaf70200552986be0d290133693595e9a576947fb0d960b1a6e4aa994` | FINALIZED |
-| 83 | unrelated page that carries the token | `review` | creator | 0 | `0x693d83b6aada30dc6418f68b2731e777c762748d44a2176a7a4f9b9b96149109` | FINALIZED |
-| 84 | unrelated page that carries the token | `review` | mallory | 0 | `0x1728dd19b33ddbfd35c35af7c14c5118744f3d5643688555b97e2a3dd3d02872` | FINALIZED |
-| 85 | cancel while funding, refunds, bond back | `launch_campaign` | creator | 300000000000000000 | `0xad86124c49cab52e936f9fb636e0591c8fbe2fe0ac387eeda59514811294bcb5` | FINALIZED |
-| 86 | cancel while funding, refunds, bond back | `back` | bob | 2000000000000000000 | `0x104a03be46b44d7715c57d17f2fa42667d71bc3a19ddf0f6ff7eb38993dc5ed4` | FINALIZED |
-| 87 | cancel while funding, refunds, bond back | `back` | carol | 1000000000000000000 | `0xf8bd7baa6ab97d44b558324c81101edb2d6be728c253bdecd5d02d98805d82df` | FINALIZED |
-| 88 | cancel while funding, refunds, bond back | `cancel_campaign` | creator | 0 | `0xe470fe9f33c4a35a74ab7d53ec242332acfd27f467b6f5da9208be2de3bbbf1b` | FINALIZED |
-| 89 | cancel while funding, refunds, bond back | `claim_payout` | creator | 0 | `0x55fbdb36c9749e6c3b879b564cdd0220911a845019e0930ec9539a13e1977997` | FINALIZED |
-| 90 | cancel while funding, refunds, bond back | `claim_payout` | creator | 0 | `0x86c39f87b5d4e9d39ea119107dd7e17b6515ecdeed7eccf57f417c32a83bac11` | FINALIZED |
-| 91 | cancel while funding, refunds, bond back | `claim_refund` | bob | 0 | `0x702b6c3e2a238d9b3e04a894fe5b8c3131fae259a63448bfff4879b253f74d8f` | FINALIZED |
-| 92 | cancel while funding, refunds, bond back | `claim_payout` | bob | 0 | `0xee24f3b928face073d006b8b408f5931ad0f2fcba8651f1c981e0da65403dc71` | FINALIZED |
-| 93 | cancel while funding, refunds, bond back | `claim_payout` | bob | 0 | `0xef305c247c2c322573e624065934873dee6d950bd5607bc5c1db7cb54b89410c` | FINALIZED |
-| 94 | cancel while funding, refunds, bond back | `claim_refund` | bob | 0 | `0x48155e1f3c3aac6b8d732fd77200c6b0f591b4df826114923acf34e52ad5d17f` | FINALIZED |
-| 95 | cancel while funding, refunds, bond back | `claim_refund` | mallory | 0 | `0x6409a7e38fcb5c145844657c6ba5b7e41139d7d1179902ce0c0f91e252b5673b` | FINALIZED |
-| 96 | cancel while funding, refunds, bond back | `claim_refund` | carol | 0 | `0x0eab04b11ab30699075fa0017ea432e72c65102daf1f93fcb897b1f63792ea21` | FINALIZED |
-| 97 | cancel while funding, refunds, bond back | `claim_payout` | carol | 0 | `0xa99e3efe132a443d9e6fe19b87a176ed22e8835e8f000f9930a31f7c21e8bc17` | FINALIZED |
-| 98 | cancel while funding, refunds, bond back | `claim_payout` | carol | 0 | `0x2264560262aaab9b673a7986ca0309c9684483959a0326cc4e8c4635a171869e` | FINALIZED |
+| 1 | access control and input validation (no LLM) | `launch_campaign` | creator | 199999999999999999 | `0xf6e94ba8e219857d1d1f1188748e28d14f1a5ac63f086f06c6e4a7eaba68c67c` | FINALIZED |
+| 2 | access control and input validation (no LLM) | `launch_campaign` | creator | 0 | `0x260f81066cca49fc8befcb5f53bee778a6094448e741cbf5f5c2051c8878ce4a` | FINALIZED |
+| 3 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0xcd50b68855b8ef2d5d5143ef7f4b3d805b03529906d47bb18a11e96e9e5a7129` | FINALIZED |
+| 4 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0xfa508c516c158670ddc1458bde50c1d0e149e75d99f5338af25e80f6b9ba26ff` | FINALIZED |
+| 5 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0xb07dd042a7d69cf9cd2c1245445e2d01708e60512e95be6289c903076338645c` | FINALIZED |
+| 6 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0xe895a2a3f8b647a1afcf198e54a0aed51173707890ca6a49dc9f9d26a7059d14` | FINALIZED |
+| 7 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0x516fa65001153abbd8f509511f50e71fc4dd426d1fbd6fcb1d4d40424bdc9d42` | FINALIZED |
+| 8 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0xf32320258ba66340dbf1fab4e6521f936e9ff6b5383cda7ae5583b5b91450421` | FINALIZED |
+| 9 | access control and input validation (no LLM) | `launch_campaign` | creator | 200000000000000000 | `0x3a15cd207bce19e471b0e885acfb4f607162c741d70da8c72ba5010f2a9d4f89` | FINALIZED |
+| 10 | access control and input validation (no LLM) | `back` | creator | 1000000000000000000 | `0x31a1870e33244eb88791cd49ac0f62ea15e05c0e4200684675d6c47af2d4699c` | FINALIZED |
+| 11 | access control and input validation (no LLM) | `back` | bob | 500000000000000000 | `0x7e6c3883df6dd0f955f0e23e0e714e5d77dfb4eb0433504e64becf9a23f2a701` | FINALIZED |
+| 12 | access control and input validation (no LLM) | `cancel_campaign` | mallory | 0 | `0x8d872640a202f731d447c282838b70957f5eeba443b61f2a7947fdccf16c49d1` | FINALIZED |
+| 13 | access control and input validation (no LLM) | `submit_proof` | mallory | 0 | `0xfa72ff24869d42ce10977f780c8b545248c00701c18b02980b9def4808dcae00` | FINALIZED |
+| 14 | access control and input validation (no LLM) | `close_funding` | mallory | 0 | `0xbeca08b3f5bc20b7fca4200c7ca9e4229f57b7183543a24119e24f1887fc6d20` | FINALIZED |
+| 15 | access control and input validation (no LLM) | `withdraw_pledge` | bob | 0 | `0x71d28040000ba911fa66ef22e2e3651bee2eb2d09f9aa3b7eec61a5048db273a` | FINALIZED |
+| 16 | access control and input validation (no LLM) | `claim_refund` | bob | 0 | `0x0eff7b444c3e5a3540036042d0b1f8a289af41681a75d7e5f9ab9eaff1216c94` | FINALIZED |
+| 17 | access control and input validation (no LLM) | `claim_payout` | mallory | 0 | `0x06d1b0cab6eb7670c45a33e3d06a62ecaca2aede04838110edccd24ee2910660` | FINALIZED |
+| 18 | access control and input validation (no LLM) | `review` | creator | 0 | `0x9d7456500424b79863dc172b86832f32b4703bfcdf61c6156cfdd36649331fec` | FINALIZED |
+| 19 | access control and input validation (no LLM) | `declare_default` | mallory | 0 | `0x541379b1599e6bbb7b06be26f5f32eeb98786e86efc7aef092c8ba8757684459` | FINALIZED |
+| 20 | access control and input validation (no LLM) | `back` | bob | 1000000000000000000 | `0x533c9058a7a060c31ad7f3bfc9b602cb5f050e1ac945d042e0ba70069b938762` | FINALIZED |
+| 21 | access control and input validation (no LLM) | `back` | bob | 2000000000000000000 | `0x86ecc6ea4425b59a56e911992c84b31d77158324ce3ec25fe80e2f2aa62131a2` | FINALIZED |
+| 22 | access control and input validation (no LLM) | `withdraw_pledge` | bob | 0 | `0x3cbbfa70938b210ad95f536b3a93c0d2af0727552f04411157ca92d1761a14e2` | FINALIZED |
+| 23 | access control and input validation (no LLM) | `claim_payout` | bob | 0 | `0xc788105ba0fc98faccc217ef3399b47bb95a9504f2749f2f1e0ee83b481de5da` | FINALIZED |
+| 24 | access control and input validation (no LLM) | `claim_payout` | bob | 0 | `0xf89c12c4c0f2b3da7d1c7012c25356ef6e6f6d2b85e56694cb2d9822bc13713b` | FINALIZED |
+| 25 | access control and input validation (no LLM) | `back` | bob | 2000000000000000000 | `0x94a34075aa97001f57f4c360607818cb4e09ceffc510e29434617dac94f2f61f` | FINALIZED |
+| 26 | access control and input validation (no LLM) | `back` | carol | 2000000000000000000 | `0x651adbc2ba1c59baef1085b3ad3b197272c863947254ab20bbc22136b1943a9c` | FINALIZED |
+| 27 | access control and input validation (no LLM) | `close_funding` | mallory | 0 | `0x1263afe95ecbec2afec51e4438d9ced0e0b34ac53e3f27d0f6c6ca04163dbbb1` | FINALIZED |
+| 28 | access control and input validation (no LLM) | `back` | carol | 1000000000000000000 | `0x41de7e735da9261e46e12c0eaf6f519629a75a40b2363c6dc40ba34bd7077b0b` | FINALIZED |
+| 29 | access control and input validation (no LLM) | `cancel_campaign` | creator | 0 | `0x31bf018398a59b35dbf77fef88063a925605c2de3f59b279e064ea18709c54ad` | FINALIZED |
+| 30 | access control and input validation (no LLM) | `withdraw_pledge` | bob | 0 | `0xf80c2cbd1a1423f81fcf1d5b76132c83b57f21883a2135cc5a9c410b7a65fba3` | FINALIZED |
+| 31 | access control and input validation (no LLM) | `review` | creator | 0 | `0x9f5d8cb6df9162cec7cd1ba5130b228e769a7e2c5cd055ca5ddc886869538e99` | FINALIZED |
+| 32 | access control and input validation (no LLM) | `declare_default` | mallory | 0 | `0xe8da99e333fddf62cfc635ba2fe9b495941a8b461a2acfa94233a8bd0d50c160` | FINALIZED |
+| 33 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0x87deb173998406b64e7e893e8340c35b66178507586dae93091b7938c3f38a90` | FINALIZED |
+| 34 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0x430628b9b29b45943ea6ef24cb402c22dc5d45bae46de5a7cb8e4293c242a697` | FINALIZED |
+| 35 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0x13b369db26e14d4a824a2452ffb0edb5c69d2fd2e2335a9103ac16273c515262` | FINALIZED |
+| 36 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0x3e9eda99b8a1ed26fb2a9beb9f1e40ca4e517158f737ef335619cb46fca69a0d` | FINALIZED |
+| 37 | access control and input validation (no LLM) | `submit_proof` | creator | 0 | `0x674276ac8a713cdbb5b3230187bc456134e31b5a261acebb21667960cc3c8d7f` | FINALIZED |
+| 38 | happy path: two milestones, bond returned | `launch_campaign` | creator | 200000000000000000 | `0x92d9a01bca4bff670b56fb60d3203a2097474c71aeaa59bb94a890b95d1e114f` | FINALIZED |
+| 39 | happy path: two milestones, bond returned | `back` | bob | 2000000000000000000 | `0x41366f30abdef5d90ecbbecaeae63a1dc1936dd3821d21a06ad4803ad2d7630d` | FINALIZED |
+| 40 | happy path: two milestones, bond returned | `back` | carol | 2000000000000000000 | `0xbe80f76a651710aceb7e2114d328ed449dffbbc8ae0afe20ff3933dfe32b4fc4` | FINALIZED |
+| 41 | happy path: two milestones, bond returned | `close_funding` | mallory | 0 | `0xce03137faa3eff63cbd9cf1fc7765850f78b88522d6ea3d85daed1f2ceed1230` | FINALIZED |
+| 42 | happy path: two milestones, bond returned | `submit_proof` | creator | 0 | `0x1755427cda3ea42958d9eb0f67aee39c00ac130c234bc8419f453fe20609f730` | FINALIZED |
+| 43 | happy path: two milestones, bond returned | `review` | creator | 0 | `0x12064b3787918b9059e3cf1109c53475a07221dc827d7ce32a35bf76356d4a89` | FINALIZED |
+| 44 | happy path: two milestones, bond returned | `claim_payout` | creator | 0 | `0x529f5c02bd788374571d4b4a260a5c5bde6a554a16fffa812b60dd10546c7b46` | FINALIZED |
+| 45 | happy path: two milestones, bond returned | `claim_payout` | creator | 0 | `0x536fe83ac5e42648fdfe7488cfed842007385cdcc00b6c1695cb6791b1251eed` | FINALIZED |
+| 46 | happy path: two milestones, bond returned | `submit_proof` | creator | 0 | `0x9174c7ef352402415425a68498065460e303b6d439c694745e7db8f9b026e7fe` | FINALIZED |
+| 47 | happy path: two milestones, bond returned | `review` | creator | 0 | `0x90d8c2c7c2f852275c139d9849029376d69dd4f243baa829cd57ef3eda105600` | FINALIZED |
+| 48 | happy path: two milestones, bond returned | `claim_payout` | creator | 0 | `0x27407b0ee42cf212cf8c0a1c464f1f40af2aa9a14cbf912b01d5898eb5f0b2bb` | FINALIZED |
+| 49 | happy path: two milestones, bond returned | `claim_payout` | creator | 0 | `0xb80c14f738613568492a1ddc44c800aa445d7b46d1c710d7149d4c29bd5ee1a0` | FINALIZED |
+| 50 | happy path: two milestones, bond returned | `claim_refund` | bob | 0 | `0xa04c75efd539845562cbdfe2939888f25c0ee75654b23b06ce49f77ecc728caf` | FINALIZED |
+| 51 | page without the proof token | `launch_campaign` | creator | 200000000000000000 | `0x5d388bcabd661a79dcea366d73689f25bca298914dd73acb64cf96ff490778f3` | FINALIZED |
+| 52 | page without the proof token | `back` | bob | 2000000000000000000 | `0x71c6ec20f966091f02633d4aeac7747f3c2e5123d0a24e2a36a023ef6010865b` | FINALIZED |
+| 53 | page without the proof token | `back` | carol | 2000000000000000000 | `0x493ded4f7e84424ff3888b8d9319afbc257e285a0a40850c4f49141df6b3cd0c` | FINALIZED |
+| 54 | page without the proof token | `close_funding` | mallory | 0 | `0x2fea230604e62e0c18edbf58bb0f7c601a1f0bf521d5c1a3f90b6c9933280648` | FINALIZED |
+| 55 | page without the proof token | `submit_proof` | creator | 0 | `0xfa3d63c688df47539282295f14a05695d21023dab75c59085ea86dfedb7e8d15` | FINALIZED |
+| 56 | page without the proof token | `review` | creator | 0 | `0x80ed4230d2eb1dcb62aa9680732551e71e974a08e417f0514d912946e833bf2e` | FINALIZED |
+| 57 | page without the proof token | `review` | mallory | 0 | `0x9b265b62a5f0ad304c60e6f4e68e20231931b4dfac37f3a15b44e29bb6739824` | FINALIZED |
+| 58 | page with another milestone's token | `launch_campaign` | creator | 200000000000000000 | `0x49e4943618f5957bf8e2535c23d1bc6f78ecfcf145b6b6e6205c442429066ce3` | FINALIZED |
+| 59 | page with another milestone's token | `back` | bob | 2000000000000000000 | `0x088be91f093974d021bdfe93a76ff3d6b1d90524e1b7d7b5cd3951cb726c9b6c` | FINALIZED |
+| 60 | page with another milestone's token | `back` | carol | 2000000000000000000 | `0xc74aa07a66d429f02546d3bf432ccd7ac782c9bb2d81a292ebc7aeb31bb7f1f1` | FINALIZED |
+| 61 | page with another milestone's token | `close_funding` | mallory | 0 | `0xc04fc1aaf320f89bc088a88565b3b5469618a38599e595cacc0a89afd84818e1` | FINALIZED |
+| 62 | page with another milestone's token | `submit_proof` | creator | 0 | `0xbe3037a78b6c0994e4e8970b8384fe8bb74c3c7932dd6d86fe7da7b83e95bbb5` | FINALIZED |
+| 63 | page with another milestone's token | `review` | creator | 0 | `0xad21ed1bdf66de4acbd5b7e9eaee5249cdfa171e476c85a005bd0cc5e5eca11b` | FINALIZED |
+| 64 | promises and a roadmap are not delivery | `launch_campaign` | creator | 200000000000000000 | `0xeb7342258eed901a66e7bbc208d087fcc4e75cc86e6996ce667969695745bd2d` | FINALIZED |
+| 65 | promises and a roadmap are not delivery | `back` | bob | 2000000000000000000 | `0x81f1a4410c7b01315a97adacf0e8c87b9b66a38b729e29522ff1e6d0f79d76d5` | FINALIZED |
+| 66 | promises and a roadmap are not delivery | `back` | carol | 2000000000000000000 | `0xe4c8025bed35501f3bae8353d5dd26f1b47ae3220ea32a800387370928530866` | FINALIZED |
+| 67 | promises and a roadmap are not delivery | `close_funding` | mallory | 0 | `0x5e806a2fab5985a84967bd4079d71c271217f05b36f14f6d9ef47431d13a130e` | FINALIZED |
+| 68 | promises and a roadmap are not delivery | `submit_proof` | creator | 0 | `0x3c1a59b4cebf7d9f4b2b2ba6988a52221346b2e2a6ae6c611ca50d6131e41d39` | FINALIZED |
+| 69 | promises and a roadmap are not delivery | `review` | creator | 0 | `0x5b2ef3f2a8327d252009d53e2197aaa27b4f4d7bb82179ca1d065e65cbbfbabf` | FINALIZED |
+| 70 | promises and a roadmap are not delivery | `review` | mallory | 0 | `0x3e0d1633c0c73bb9af33259ec4c3273db05d9f9acd66a0268c5f6f11924a40d8` | FINALIZED |
+| 71 | prompt injection on the proof page | `launch_campaign` | creator | 200000000000000000 | `0xdd05818794a4bc086fb8a95f1319c8f1872c6f35b1d701e0123290f4d90faaf9` | FINALIZED |
+| 72 | prompt injection on the proof page | `back` | bob | 2000000000000000000 | `0xb4b5b154cc5955e59c24a97ffd73c67ac2c4f46d27ba135e783476605b03e29d` | FINALIZED |
+| 73 | prompt injection on the proof page | `back` | carol | 2000000000000000000 | `0x8ce28ea0909b26cb2701af6337a185bdbcfc094e5ee6a3aa7f8df876ebd8d29b` | FINALIZED |
+| 74 | prompt injection on the proof page | `close_funding` | mallory | 0 | `0xae414a0ce16eecd1a91877e381f92a75d1ec764dc2da60f7a009c1d26d15717b` | FINALIZED |
+| 75 | prompt injection on the proof page | `submit_proof` | creator | 0 | `0xe7f6a3ad1b506556e21e01b6173f31a13b3253b527c860a4f9a02e4478ea7564` | FINALIZED |
+| 76 | prompt injection on the proof page | `review` | creator | 0 | `0x38b62a8ae73fcf5076ff83ee34e61910473a1640bc1488d22f370404d56ab636` | FINALIZED |
+| 77 | prompt injection on the proof page | `review` | mallory | 0 | `0x5cd9eda978996d583c076c2b27cf0fadef868b654f6fae76065d795ecd9cef43` | FINALIZED |
+| 78 | unrelated page that carries the token | `launch_campaign` | creator | 200000000000000000 | `0xa19913375e0c254ff5e71fc9b8a05631bc03e9696843b7b43a4637f50d1a95ba` | FINALIZED |
+| 79 | unrelated page that carries the token | `back` | bob | 2000000000000000000 | `0x50912e6b0371a52c26c3c9371d3dd5f3356ac2e08bbb0320d9cf6d457e985ef4` | FINALIZED |
+| 80 | unrelated page that carries the token | `back` | carol | 2000000000000000000 | `0xbe83d7a3c71f094d5c132b34839bb18f8982e83d5ae8ddf6e7fce7405c6a515e` | FINALIZED |
+| 81 | unrelated page that carries the token | `close_funding` | mallory | 0 | `0x9fb372fb003dcf862f0e73026e22430e17822155e050d890e87bfd52be7adab7` | FINALIZED |
+| 82 | unrelated page that carries the token | `submit_proof` | creator | 0 | `0x0095610dcf8eba7026d75082f72c650ccafd1dbf67503592c366469421ac4f44` | FINALIZED |
+| 83 | unrelated page that carries the token | `review` | creator | 0 | `0x50ecb39de072042df0e85402dcffe14841665a062b8d95269fa85ace686adf26` | FINALIZED |
+| 84 | unrelated page that carries the token | `review` | mallory | 0 | `0xf5eea01ff6d9c8e1adeed912da7a66c4b5a0b3364a0dd53762177ece0990155b` | FINALIZED |
+| 85 | cancel while funding, refunds, bond back | `launch_campaign` | creator | 300000000000000000 | `0x110c5f23ca578774b7773b3e46f8b0079fa868ed029015e05040fece4eced899` | FINALIZED |
+| 86 | cancel while funding, refunds, bond back | `back` | bob | 2000000000000000000 | `0xed883fdc2848e6e5b702e4766fabcbbf6d233061533a78e4d382ee2b06b55483` | FINALIZED |
+| 87 | cancel while funding, refunds, bond back | `back` | carol | 1000000000000000000 | `0x4ef8f4c15cee83b370ebac1f7a0ea04769cc0b96e685ff90060cbc809adc337b` | FINALIZED |
+| 88 | cancel while funding, refunds, bond back | `cancel_campaign` | creator | 0 | `0xcb64e132370cc82b0f76b2b39cca2cf6cc4b0d6e94c551fd97abea3a2b8ddc7d` | FINALIZED |
+| 89 | cancel while funding, refunds, bond back | `claim_payout` | creator | 0 | `0x99696ba1192e39dce96893b89d143d1a728f58bf99c942b06e5a3690fb96d361` | FINALIZED |
+| 90 | cancel while funding, refunds, bond back | `claim_payout` | creator | 0 | `0x677171861083ca9d21f131fdb12231c94e06599e8298b63dccb48b3ce8fbe9bb` | FINALIZED |
+| 91 | cancel while funding, refunds, bond back | `claim_refund` | bob | 0 | `0x859d8c9ad972077b466c5dcb446781da20f2beeaafccbbc09f52a7426028e7ac` | FINALIZED |
+| 92 | cancel while funding, refunds, bond back | `claim_payout` | bob | 0 | `0x07a2190cdb29202a11fe78b63cee38c1a38244ba7e14cc71179b268e4e505818` | FINALIZED |
+| 93 | cancel while funding, refunds, bond back | `claim_payout` | bob | 0 | `0xb89d2c7603d1e0683c0ba56b73bb1ab3890e0b5c386e156ce766c5275cd83c4b` | FINALIZED |
+| 94 | cancel while funding, refunds, bond back | `claim_refund` | bob | 0 | `0x6d8c84ffccfd5eabe732291c897ea9fda5cfe08b144e4593140f8ee461af5105` | FINALIZED |
+| 95 | cancel while funding, refunds, bond back | `claim_refund` | mallory | 0 | `0xbbe18f295bd4c32537295556d3e1afa94d8fa19c1d5fe531db598ebfab9d83d2` | FINALIZED |
+| 96 | cancel while funding, refunds, bond back | `claim_refund` | carol | 0 | `0x9a7cd6d1cb4909d096b787bc205beb0af1a02665db5ecf1f23820136ba909fec` | FINALIZED |
+| 97 | cancel while funding, refunds, bond back | `claim_payout` | carol | 0 | `0x541f8686be031824298c1ae02b51ecced2faed703438a7208fdd3b1759bd20b0` | FINALIZED |
+| 98 | cancel while funding, refunds, bond back | `claim_payout` | carol | 0 | `0x0e464c34ee20e1ea47e49236636568d91b429ba187d4c4acdf53676074bda18a` | FINALIZED |
 
 ## Credits (the vault's credit log: nothing is pushed, everything is credited)
 
 | scenario | id | kind | beneficiary | amount (wei) |
 |---|---|---|---|---|
-| happy path | 1 | tranche | creator `0x06Dd57F7d9F2e803cDF592D000aa4bbAd6dABaFC` | 1600000000000000000 |
-| happy path | 2 | tranche_and_bond | creator `0x06Dd57F7d9F2e803cDF592D000aa4bbAd6dABaFC` | 2600000000000000000 |
-| cancel and refunds | 3 | bond_returned | creator `0x06Dd57F7d9F2e803cDF592D000aa4bbAd6dABaFC` | 300000000000000000 |
-| cancel and refunds | 4 | refund | bob `0x43e924170eE78C5FbeA7308426AF282446765155` | 2000000000000000000 |
-| cancel and refunds | 5 | refund | carol `0x265A49E2127aEf31B8E0Bc563599582319b188c1` | 1000000000000000000 |
+| happy path | 1 | tranche | creator `0xb3fFe00357bc4e3Ee4d81da0716AA418a929f20e` | 1600000000000000000 |
+| happy path | 2 | tranche_and_bond | creator `0xb3fFe00357bc4e3Ee4d81da0716AA418a929f20e` | 2600000000000000000 |
+| cancel and refunds | 3 | bond_returned | creator `0xb3fFe00357bc4e3Ee4d81da0716AA418a929f20e` | 300000000000000000 |
+| cancel and refunds | 4 | refund | bob `0x4343366eD1F1B3f1556a052eCD6a91fb1CA144A0` | 2000000000000000000 |
+| cancel and refunds | 5 | refund | carol `0x2a1266c653208108FcbC34f4B3D5e555A66770D2` | 1000000000000000000 |
 
 ## Claims (`claim_payout`, the only transaction that sends GEN)
 
 | scenario | who | claimed (wei) | wallet before | wallet after | expected | tx | status when accepted |
 |---|---|---|---|---|---|---|---|
-| access control and input validation (no LLM) | bob | 2000000000000000000 | 96500000000000000000 | 98500000000000000000 | 98500000000000000000 | `0x0a0283a76bb490c2530afab432db79f87808c7dbb3a7d13c6b4f44bfb7f53018` | ACCEPTED |
-| happy path: two milestones, bond returned | creator | 1600000000000000000 | 97200000000000000001 | 98800000000000000001 | 98800000000000000001 | `0x21cb3ec9ecbb7cf3badf1e06bbeed9448fba7ec0efe1d276dc9619509a24a3f3` | ACCEPTED |
-| happy path: two milestones, bond returned | creator | 2600000000000000000 | 98800000000000000001 | 101400000000000000001 | 101400000000000000001 | `0x4d7a8a7edeb747cdb5a8e7c9fd94383fc180594c4af9bf593ac3cfd0fbc58e51` | ACCEPTED |
-| cancel while funding, refunds, bond back | creator | 300000000000000000 | 100100000000000000001 | 100400000000000000001 | 100400000000000000001 | `0x55fbdb36c9749e6c3b879b564cdd0220911a845019e0930ec9539a13e1977997` | ACCEPTED |
-| cancel while funding, refunds, bond back | bob | 2000000000000000000 | 82500000000000000000 | 84500000000000000000 | 84500000000000000000 | `0xee24f3b928face073d006b8b408f5931ad0f2fcba8651f1c981e0da65403dc71` | ACCEPTED |
-| cancel while funding, refunds, bond back | carol | 1000000000000000000 | 84000000000000000000 | 85000000000000000000 | 85000000000000000000 | `0xa99e3efe132a443d9e6fe19b87a176ed22e8835e8f000f9930a31f7c21e8bc17` | ACCEPTED |
+| access control and input validation (no LLM) | bob | 2000000000000000000 | 96500000000000000000 | 98500000000000000000 | 98500000000000000000 | `0xc788105ba0fc98faccc217ef3399b47bb95a9504f2749f2f1e0ee83b481de5da` | ACCEPTED |
+| happy path: two milestones, bond returned | creator | 1600000000000000000 | 97200000000000000001 | 98800000000000000001 | 98800000000000000001 | `0x529f5c02bd788374571d4b4a260a5c5bde6a554a16fffa812b60dd10546c7b46` | ACCEPTED |
+| happy path: two milestones, bond returned | creator | 2600000000000000000 | 98800000000000000001 | 101400000000000000001 | 101400000000000000001 | `0x27407b0ee42cf212cf8c0a1c464f1f40af2aa9a14cbf912b01d5898eb5f0b2bb` | ACCEPTED |
+| cancel while funding, refunds, bond back | creator | 300000000000000000 | 100100000000000000001 | 100400000000000000001 | 100400000000000000001 | `0x99696ba1192e39dce96893b89d143d1a728f58bf99c942b06e5a3690fb96d361` | ACCEPTED |
+| cancel while funding, refunds, bond back | bob | 2000000000000000000 | 82500000000000000000 | 84500000000000000000 | 84500000000000000000 | `0x07a2190cdb29202a11fe78b63cee38c1a38244ba7e14cc71179b268e4e505818` | ACCEPTED |
+| cancel while funding, refunds, bond back | carol | 1000000000000000000 | 84000000000000000000 | 85000000000000000000 | 85000000000000000000 | `0x541f8686be031824298c1ae02b51ecced2faed703438a7208fdd3b1759bd20b0` | ACCEPTED |
 
 ## Outgoing child transfers (what each finalized `claim_payout` emitted)
 
-The claim transactions below are all FINALIZED. The chain's own list of emitted messages was not captured in this run (the previous script version did not read it); the evidence for each transfer is the recipient's wallet before and after finalization. The next run of `scripts/live_e2e.py` fills the last column with the messages the chain reports.
-
-| scenario | who | amount (wei) | claim tx | final status | wallet before | wallet after | emitted message(s) reported by the chain |
-|---|---|---|---|---|---|---|---|
-| access control and input validation (no LLM) | bob | 2000000000000000000 | `0x0a0283a76bb490c2530afab432db79f87808c7dbb3a7d13c6b4f44bfb7f53018` | FINALIZED | 96500000000000000000 | 98500000000000000000 | not captured in this run |
-| happy path: two milestones, bond returned | creator | 1600000000000000000 | `0x21cb3ec9ecbb7cf3badf1e06bbeed9448fba7ec0efe1d276dc9619509a24a3f3` | FINALIZED | 97200000000000000001 | 98800000000000000001 | not captured in this run |
-| happy path: two milestones, bond returned | creator | 2600000000000000000 | `0x4d7a8a7edeb747cdb5a8e7c9fd94383fc180594c4af9bf593ac3cfd0fbc58e51` | FINALIZED | 98800000000000000001 | 101400000000000000001 | not captured in this run |
-| cancel while funding, refunds, bond back | creator | 300000000000000000 | `0x55fbdb36c9749e6c3b879b564cdd0220911a845019e0930ec9539a13e1977997` | FINALIZED | 100100000000000000001 | 100400000000000000001 | not captured in this run |
-| cancel while funding, refunds, bond back | bob | 2000000000000000000 | `0xee24f3b928face073d006b8b408f5931ad0f2fcba8651f1c981e0da65403dc71` | FINALIZED | 82500000000000000000 | 84500000000000000000 | not captured in this run |
-| cancel while funding, refunds, bond back | carol | 1000000000000000000 | `0xa99e3efe132a443d9e6fe19b87a176ed22e8835e8f000f9930a31f7c21e8bc17` | FINALIZED | 84000000000000000000 | 85000000000000000000 | not captured in this run |
+| scenario | who | recipient | amount (wei) | claim tx | final status | emitted message(s) reported by the chain |
+|---|---|---|---|---|---|---|
+| access control and input validation (no LLM) | bob | `0x4343366eD1F1B3f1556a052eCD6a91fb1CA144A0` | 2000000000000000000 | `0xc788105ba0fc98faccc217ef3399b47bb95a9504f2749f2f1e0ee83b481de5da` | FINALIZED | 0xffe20640e1ddf554cb13615950c7885fc65645b03f425fa07bd5d62157053c82 |
+| happy path: two milestones, bond returned | creator | `0xb3fFe00357bc4e3Ee4d81da0716AA418a929f20e` | 1600000000000000000 | `0x529f5c02bd788374571d4b4a260a5c5bde6a554a16fffa812b60dd10546c7b46` | FINALIZED | 0xfaf51bebee8d287bfc624e13bcdaacdd16e0b52c19454eb27673735eb0f5ede6 |
+| happy path: two milestones, bond returned | creator | `0xb3fFe00357bc4e3Ee4d81da0716AA418a929f20e` | 2600000000000000000 | `0x27407b0ee42cf212cf8c0a1c464f1f40af2aa9a14cbf912b01d5898eb5f0b2bb` | FINALIZED | 0x0f53f965662738827d824e0bbccf98a3e50e019987469322935c4585e1c555bc |
+| cancel while funding, refunds, bond back | creator | `0xb3fFe00357bc4e3Ee4d81da0716AA418a929f20e` | 300000000000000000 | `0x99696ba1192e39dce96893b89d143d1a728f58bf99c942b06e5a3690fb96d361` | FINALIZED | 0x133013e6e46c10e08bd69d383c1b5fcc0ccc45b88513f1c02735d666f17e3b7b |
+| cancel while funding, refunds, bond back | bob | `0x4343366eD1F1B3f1556a052eCD6a91fb1CA144A0` | 2000000000000000000 | `0x07a2190cdb29202a11fe78b63cee38c1a38244ba7e14cc71179b268e4e505818` | FINALIZED | 0xe88910bc116ac7888be4a74c7d34829d03209976a3beb0f24c0337896baa0d03 |
+| cancel while funding, refunds, bond back | carol | `0x2a1266c653208108FcbC34f4B3D5e555A66770D2` | 1000000000000000000 | `0x541f8686be031824298c1ae02b51ecced2faed703438a7208fdd3b1759bd20b0` | FINALIZED | 0xa0f1525935d5a51abcb48bb647be925bfb37db8cb08a245b67313d68fc3411fd |
 
 ## Recipient balance evidence (per scenario)
 
