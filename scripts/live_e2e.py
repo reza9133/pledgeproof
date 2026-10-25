@@ -215,6 +215,10 @@ class Backend:
         """Current consensus status of a transaction (ACCEPTED, FINALIZED, ...); '' when unknown."""
         return ""
 
+    def final_receipt(self, tx_hash: str) -> Optional[dict]:
+        """The transaction as the chain reports it now (after FINALIZED it lists the messages it emitted); None when unknown."""
+        return None
+
     def balance(self, address: str) -> int: ...
     def deploy(self, acct: Acct, code: str) -> str: ...
     def write(self, acct: Acct, address: str, fn: str, args: list, value: int = 0) -> Tx: ...
@@ -382,6 +386,20 @@ class LiveBackend(Backend):
             return str(got.get("status_name") or got.get("statusName") or got.get("status") or "unknown")
         return str(getattr(got, "status_name", None) or getattr(got, "status", None) or "unknown")
 
+    def final_receipt(self, tx_hash: str) -> Optional[dict]:
+        if not tx_hash:
+            return None
+        try:
+            got = self.client.get_transaction(transaction_hash=tx_hash)
+        except Exception:
+            return None
+        if isinstance(got, dict):
+            return got
+        try:
+            return json.loads(json.dumps(got, default=lambda o: getattr(o, "__dict__", str(o))))
+        except Exception:
+            return None
+
     def deploy(self, acct: Acct, code: str) -> str:
         tx_hash = self.client.deploy_contract(code=code, account=acct.raw, args=[])
         self.last_deploy_tx = str(tx_hash)
@@ -469,6 +487,20 @@ def _child_messages(receipt: Optional[dict]) -> list:
     return []
 
 
+def _describe_child(message: Any) -> str:
+    """One short cell for a child message: its hash when it has one, else the recipient/value fields it carries."""
+    if not isinstance(message, dict):
+        return str(message)[:120].replace("|", "/")
+    parts = []
+    for label, keys in (("hash", ("hash", "tx_hash", "txHash", "id")), ("to", ("to", "recipient", "address", "to_address")),
+                        ("value", ("value", "amount")), ("status", ("status_name", "status"))):
+        for k in keys:
+            if message.get(k) not in (None, ""):
+                parts.append(f"{label}={message[k]}")
+                break
+    return (", ".join(parts) or json.dumps(message, default=str)[:120]).replace("|", "/")
+
+
 def write_manifest(ctx: "Ctx", backend: "Backend", network: str, rpc: str) -> dict:
     """artifacts/manifest.json + MANIFEST.md: deployment, every transaction, outgoing transfers and balance evidence."""
     for row in ctx.txs:
@@ -502,6 +534,14 @@ def write_manifest(ctx: "Ctx", backend: "Backend", network: str, rpc: str) -> di
     for r in ctx.claim_rows:
         lines.append(f"| {r['scenario']} | {r['who']} | {r['claimed']} | {r['wallet_before']} | {r['wallet_after']} | "
                      f"{r['expected_wallet']} | `{r['claim_tx'] or 'n/a'}` | {r['status'] or '?'} |")
+    lines += ["", "## Outgoing child transfers (what each finalized `claim_payout` emitted)", "",
+              "| scenario | who | recipient | amount (wei) | claim tx | final status | emitted message(s) reported by the chain |",
+              "|---|---|---|---|---|---|---|"]
+    for r in ctx.claim_rows:
+        msgs = r.get("child_transfers") or []
+        shown = "; ".join(_describe_child(m) for m in msgs[:3]) if msgs else "none reported by this Studio version (see wallet before/after above)"
+        lines.append(f"| {r['scenario']} | {r['who']} | `{r['address']}` | {r['claimed']} | `{r['claim_tx'] or 'n/a'}` | "
+                     f"{r.get('final_status') or '?'} | {shown} |")
     lines += ["", "## Recipient balance evidence (per scenario)", "",
               "| scenario | account | before | sent into vault | pulled by claim_payout | after | expected |", "|---|---|---|---|---|---|---|"]
     for r in ctx.payout_rows:
@@ -718,6 +758,9 @@ class Ctx:
         rep.check(f"{name}: {label}'s credit is debited as soon as the claim is accepted", self.credit_of(label) == 0,
                   f"credit is still {self.credit_of(label)}")
         self.ensure_final(tx)
+        final = self.B.final_receipt(tx.tx_hash)
+        child = _child_messages(final) or _child_messages(tx.receipt)
+        final_status = str((final or {}).get("status_name") or (final or {}).get("statusName") or (final or {}).get("status") or "")
         self.owed[label] = 0
         self.claimed[label] = self.claimed.get(label, 0) + credit
         # the transfer is an external message: it runs when the claim is finalized
@@ -732,7 +775,8 @@ class Ctx:
                            watch=lambda: self.credit_of(label))
         self.claim_rows.append({"scenario": rep.scenario, "who": label, "address": addr, "claimed": credit,
                                 "wallet_before": bal0, "wallet_after": now, "expected_wallet": expected_wallet,
-                                "claim_tx": tx.tx_hash, "status": tx.status})
+                                "claim_tx": tx.tx_hash, "status": tx.status, "final_status": final_status,
+                                "child_transfers": child})
         self.reconcile_books(f"{name}: after {label}'s claim")
         return credit
 

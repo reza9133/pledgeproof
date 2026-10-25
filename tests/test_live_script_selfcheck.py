@@ -400,3 +400,36 @@ def test_receipt_still_fails_when_the_leader_errors():
     }
     ok, _ = live.receipt_outcome(receipt)
     assert ok is False
+
+
+def test_child_transfer_description_and_manifest_section(tmp_path, monkeypatch):
+    assert "hash=0xabc" in live._describe_child({"hash": "0xabc", "to": "0x1", "value": 5})
+    assert "|" not in live._describe_child({"x": "a|b"})
+    assert live._describe_child("plain") == "plain"
+    assert live._child_messages({"triggered_transactions": [{"hash": "0x1"}]}) == [{"hash": "0x1"}]
+
+    class Ctx:
+        contract = "0xvault"
+        txs = []
+        payout_rows = []
+        accts = {}
+        claim_rows = [
+            {"scenario": "s", "who": "bob", "address": "0xbob", "claimed": 7, "wallet_before": 1, "wallet_after": 8,
+             "expected_wallet": 8, "claim_tx": "0xclaim", "status": "ACCEPTED", "final_status": "FINALIZED",
+             "child_transfers": [{"hash": "0xchild", "to": "0xbob", "value": 7}]},
+            {"scenario": "s", "who": "carol", "address": "0xcarol", "claimed": 3, "wallet_before": 1, "wallet_after": 4,
+             "expected_wallet": 4, "claim_tx": "0xclaim2", "status": "ACCEPTED", "final_status": "FINALIZED",
+             "child_transfers": []},
+        ]
+
+    class B(live.Backend):
+        def tx_status(self, tx_hash):
+            return "FINALIZED"
+
+    monkeypatch.setattr(live, "MANIFEST_JSON", tmp_path / "m.json")
+    monkeypatch.setattr(live, "MANIFEST_MD", tmp_path / "m.md")
+    live.write_manifest(Ctx(), B(), "studionet", "rpc")
+    text = (tmp_path / "m.md").read_text()
+    assert "## Outgoing child transfers" in text
+    assert "hash=0xchild, to=0xbob, value=7" in text
+    assert "none reported by this Studio version" in text

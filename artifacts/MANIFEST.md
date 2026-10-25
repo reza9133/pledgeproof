@@ -128,6 +128,19 @@
 | cancel while funding, refunds, bond back | bob | 2000000000000000000 | 82500000000000000000 | 84500000000000000000 | 84500000000000000000 | `0xee24f3b928face073d006b8b408f5931ad0f2fcba8651f1c981e0da65403dc71` | ACCEPTED |
 | cancel while funding, refunds, bond back | carol | 1000000000000000000 | 84000000000000000000 | 85000000000000000000 | 85000000000000000000 | `0xa99e3efe132a443d9e6fe19b87a176ed22e8835e8f000f9930a31f7c21e8bc17` | ACCEPTED |
 
+## Outgoing child transfers (what each finalized `claim_payout` emitted)
+
+The claim transactions below are all FINALIZED. The chain's own list of emitted messages was not captured in this run (the previous script version did not read it); the evidence for each transfer is the recipient's wallet before and after finalization. The next run of `scripts/live_e2e.py` fills the last column with the messages the chain reports.
+
+| scenario | who | amount (wei) | claim tx | final status | wallet before | wallet after | emitted message(s) reported by the chain |
+|---|---|---|---|---|---|---|---|
+| access control and input validation (no LLM) | bob | 2000000000000000000 | `0x0a0283a76bb490c2530afab432db79f87808c7dbb3a7d13c6b4f44bfb7f53018` | FINALIZED | 96500000000000000000 | 98500000000000000000 | not captured in this run |
+| happy path: two milestones, bond returned | creator | 1600000000000000000 | `0x21cb3ec9ecbb7cf3badf1e06bbeed9448fba7ec0efe1d276dc9619509a24a3f3` | FINALIZED | 97200000000000000001 | 98800000000000000001 | not captured in this run |
+| happy path: two milestones, bond returned | creator | 2600000000000000000 | `0x4d7a8a7edeb747cdb5a8e7c9fd94383fc180594c4af9bf593ac3cfd0fbc58e51` | FINALIZED | 98800000000000000001 | 101400000000000000001 | not captured in this run |
+| cancel while funding, refunds, bond back | creator | 300000000000000000 | `0x55fbdb36c9749e6c3b879b564cdd0220911a845019e0930ec9539a13e1977997` | FINALIZED | 100100000000000000001 | 100400000000000000001 | not captured in this run |
+| cancel while funding, refunds, bond back | bob | 2000000000000000000 | `0xee24f3b928face073d006b8b408f5931ad0f2fcba8651f1c981e0da65403dc71` | FINALIZED | 82500000000000000000 | 84500000000000000000 | not captured in this run |
+| cancel while funding, refunds, bond back | carol | 1000000000000000000 | `0xa99e3efe132a443d9e6fe19b87a176ed22e8835e8f000f9930a31f7c21e8bc17` | FINALIZED | 84000000000000000000 | 85000000000000000000 | not captured in this run |
+
 ## Recipient balance evidence (per scenario)
 
 | scenario | account | before | sent into vault | pulled by claim_payout | after | expected |

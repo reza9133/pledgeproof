@@ -355,20 +355,22 @@ reconciliation) is the proof that the transfer arrives.
   inflate the apparent raise.
 * Acceptance criteria are written by the creator. Vague criteria are a red flag
   for backers.
-* Payouts are emitted as GenLayer transfers and arrive when the transaction
-  finalizes. The contract cannot see whether an emitted transfer was
-  delivered, so it keeps a **payout ledger** (see below) instead of trusting it.
-* Payouts go to ordinary wallets, so `_emit()` sends them as **external
+* Payouts are **pull payments**. Review, cancel and refund transactions only
+  credit an internal ledger; `claim_payout` is the single deterministic call that
+  debits the caller's credit and emits one transfer. The contract cannot see
+  whether an emitted transfer was delivered, so a claim whose external message
+  never runs cannot be re-sent from inside the contract.
+* Payouts go to ordinary wallets, so `_send_gen()` sends them as **external
   messages** through the vault's ghost contract (an `@gl.evm.contract_interface`
-  stub with `emit_transfer`). The first version used
-  `gl.get_contract_at(to).emit_transfer(...)`, which is an *internal* message to
-  another Intelligent Contract and is the documented wrong path for an EOA; it
-  is the most likely reason the first Studionet run showed no money arriving.
-  The direct-mode harness now fails any test in which the vault sends an
-  internal message, so the old call cannot come back. External messages always
-  run on finalization, never earlier. The corrected contract has **not** been
-  run on Studionet yet: `artifacts/MANIFEST.md` from a new live run (every payout
-  `settled`, every recipient balance matching) is still the proof of delivery.
+  stub with `emit_transfer`), not `gl.get_contract_at(to).emit_transfer(...)`,
+  which is an internal message to another Intelligent Contract. External
+  messages run on finalization, never earlier. The direct-mode harness fails any
+  test in which the vault sends an internal message.
+* Live evidence: `artifacts/live_report.json` and `artifacts/MANIFEST.md` come
+  from a Studionet run against `0x61BcF2B2Ed688119d5c06551c092C0Be79879A45`
+  (273 PASS, 0 FAIL, 0 WARN). Every claim shows the recipient's wallet before and
+  after finalization, plus the outgoing child message(s) the chain reports for each finalized claim, and the vault balance is reconciled against
+  `locked_total + total_credits`.
 * Proof pages must be plain public `https://` URLs on a domain name. A public
   domain that merely *resolves* to a private address cannot be detected by
   string checks; the validators' own fetch sandbox is the defence there.
