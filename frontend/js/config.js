@@ -1,6 +1,6 @@
 // PledgeVault on GenLayer Studionet.
 window.PP_CONFIG = {
-  contract: "0x61BcF2B2Ed688119d5c06551c092C0Be79879A45",
+  contract: "0xB639f26D6fE796F7D418F88D1E46a9cebeBA0886",
   chainId: 61999,
   rpc: "https://studio.genlayer.com/api",
   explorer: "https://genlayer-explorer.vercel.app",

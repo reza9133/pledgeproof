@@ -367,7 +367,7 @@ reconciliation) is the proof that the transfer arrives.
   messages run on finalization, never earlier. The direct-mode harness fails any
   test in which the vault sends an internal message.
 * Live evidence: `artifacts/live_report.json` and `artifacts/MANIFEST.md` come
-  from a Studionet run against `0x61BcF2B2Ed688119d5c06551c092C0Be79879A45`
+  from a Studionet run against `0xB639f26D6fE796F7D418F88D1E46a9cebeBA0886`
   (273 PASS, 0 FAIL, 0 WARN). Every claim shows the recipient's wallet before and
   after finalization, plus the outgoing child message(s) the chain reports for each finalized claim, and the vault balance is reconciled against
   `locked_total + total_credits`.
